@@ -69,3 +69,61 @@ func _process(_delta: float) -> void:
 	else:
 		crosshair.visible = true
 		range_label.visible = false
+
+var _pause_panel: Panel = null
+
+func toggle_pause() -> void:
+	if _pause_panel == null:
+		_create_pause_menu()
+	_pause_panel.visible = not _pause_panel.visible
+	if _pause_panel.visible:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _create_pause_menu() -> void:
+	_pause_panel = Panel.new()
+	_pause_panel.name = "PauseMenu"
+	_pause_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.04, 0.04, 0.06, 0.85)
+	_pause_panel.add_theme_stylebox_override("panel", bg_style)
+	
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.custom_minimum_size = Vector2(360, 280)
+	vbox.add_theme_constant_override("separation", 16)
+	_pause_panel.add_child(vbox)
+	
+	var title := Label.new()
+	title.text = "PAUSED • EXPEDITION"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.95, 0.72, 0.35))
+	vbox.add_child(title)
+	
+	var resume_btn := Button.new()
+	resume_btn.text = "RESUME HUNT"
+	resume_btn.custom_minimum_size = Vector2(0, 44)
+	resume_btn.pressed.connect(toggle_pause)
+	vbox.add_child(resume_btn)
+	
+	var lodge_btn := Button.new()
+	lodge_btn.text = "VISIT 3D TROPHY LODGE"
+	lodge_btn.custom_minimum_size = Vector2(0, 44)
+	lodge_btn.pressed.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().change_scene_to_file("res://scenes/trophy_lodge.tscn")
+	)
+	vbox.add_child(lodge_btn)
+	
+	var menu_btn := Button.new()
+	menu_btn.text = "RETURN TO MAIN MENU (ESC / F10)"
+	menu_btn.custom_minimum_size = Vector2(0, 44)
+	menu_btn.pressed.connect(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	vbox.add_child(menu_btn)
+	
+	add_child(_pause_panel)

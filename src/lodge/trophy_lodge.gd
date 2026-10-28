@@ -17,11 +17,11 @@ func _ready() -> void:
 		exit_button.pressed.connect(_on_exit_pressed)
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE or event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+			get_viewport().set_input_as_handled()
 
 func _on_exit_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
@@ -115,9 +115,57 @@ func _build_cabin_geometry() -> void:
 
 func _populate_harvested_trophies() -> void:
 	var gs = get_node_or_null("/root/GameState")
-	var trophies = gs.trophies if gs else []
+	var trophies = gs.trophies.duplicate() if gs else []
 	
-	lodge_info_label.text = "OFFLINE TROPHY LODGE • CLAIMED HARVESTS: %d" % trophies.size()
+	# If player has no harvests yet, provide legendary reserve showcase mounts so the cabin is stunning!
+	if trophies.is_empty():
+		trophies = [
+			{
+				"species_name": "Whitetail Deer",
+				"trophy_score": 194.5,
+				"weight_kg": 104.2,
+				"gender": "Male",
+				"trophy_photo": "Whispering Pines Record Buck (12-Point Non-Typical)"
+			},
+			{
+				"species_name": "Ghost Buck (Mythical)",
+				"trophy_score": 218.0,
+				"weight_kg": 112.5,
+				"gender": "Male",
+				"trophy_photo": "Halloween 1894 Ridge Sighting"
+			},
+			{
+				"species_name": "Mallard",
+				"trophy_score": 18.6,
+				"weight_kg": 1.4,
+				"gender": "Male",
+				"trophy_photo": "Cupped-Wing Basin Drake"
+			},
+			{
+				"species_name": "Red Fox",
+				"trophy_score": 28.4,
+				"weight_kg": 6.8,
+				"gender": "Male",
+				"trophy_photo": "Timber Border Stalker"
+			},
+			{
+				"species_name": "Werewolf",
+				"trophy_score": 280.0,
+				"weight_kg": 145.0,
+				"gender": "Male",
+				"trophy_photo": "Legend of Black Ridge"
+			},
+			{
+				"species_name": "Wendigo (Cryptid)",
+				"trophy_score": 310.0,
+				"weight_kg": 185.0,
+				"gender": "Male",
+				"trophy_photo": "The Frozen Hollow Nightmare"
+			}
+		]
+		lodge_info_label.text = "OFFLINE TROPHY LODGE • RESERVE LEGENDARY SHOWCASE (Hunt to add yours!)"
+	else:
+		lodge_info_label.text = "OFFLINE TROPHY LODGE • CLAIMED HARVESTS: %d" % trophies.size()
 	
 	# Spawn wall mounts along the East and West walls
 	var mount_x_positions = [-7.6, 7.6]

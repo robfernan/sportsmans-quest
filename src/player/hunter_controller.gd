@@ -77,6 +77,10 @@ var _foot_wood_sound: AudioStreamWAV
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	floor_snap_length = 0.4
+	max_slides = 6
+	floor_constant_speed = true
+	up_direction = Vector3.UP
 	_init_audio()
 	_init_third_person_model()
 
@@ -135,12 +139,16 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# ESC key releases mouse cursor
+	# ESC key toggles Pause & Navigation Menu
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_toggle_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
+
+	# F10 or Backquote (`) quick shortcut: return immediately to Main Menu
+	if event is InputEventKey and event.pressed and (event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 		get_viewport().set_input_as_handled()
 		return
 
@@ -206,6 +214,16 @@ func _input(event: InputEvent) -> void:
 			KEY_SPACE:
 				if is_on_floor() and current_stance == Stance.STAND:
 					velocity.y = jump_velocity
+
+func _toggle_pause_menu() -> void:
+	var hud = get_tree().root.find_child("HuntingHUD", true, false)
+	if hud and hud.has_method("toggle_pause"):
+		hud.toggle_pause()
+	else:
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _toggle_gps_map() -> void:
 	var map = get_tree().root.find_child("HuntermateMap", true, false)
@@ -569,6 +587,27 @@ func _try_interact() -> void:
 	var query = PhysicsRayQueryParameters3D.create(origin, origin + (dir * 7.0))
 	query.collide_with_areas = true
 	var result = space.intersect_ray(query)
+	
+	# Check for interactive areas (Hunting Stand Ladder or Trapper Cabin)
+	if result and result.collider is Area3D:
+		var area = result.collider as Area3D
+		if area.has_meta("interaction_type"):
+			var itype = area.get_meta("interaction_type")
+			if itype == "hunting_stand":
+				var stand = area.get_meta("stand_root") as Node3D
+				if stand:
+					if global_position.y < stand.global_position.y + 2.0:
+						global_position = stand.global_position + Vector3(0, 4.8, 0)
+						print("[Hunting Stand] Climbed ladder up to elevated shooting platform!")
+					else:
+						global_position = stand.global_position + Vector3(0.6, 0.4, 2.0)
+						print("[Hunting Stand] Climbed down ladder to ground.")
+					return
+			elif itype == "trapper_cabin":
+				print("[Trapper Cabin] Resting by the hearth fireplace. Traveling to Trophy Lodge...")
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+				get_tree().change_scene_to_file("res://scenes/trophy_lodge.tscn")
+				return
 	
 	# Also check nearby animals within 4.0m radius (for harvesting fallen game in tall grass)
 	var world = get_parent()

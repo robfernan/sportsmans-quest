@@ -4,7 +4,7 @@ extends StaticBody3D
 ## Procedural heightmap reserve ("Whispering Pines"). Builds render mesh, collision and minimap.
 
 const SIZE := 600.0
-const STEP := 2.0
+const STEP := 3.0
 const WATER_LEVEL := 0.0
 const LAKE_CENTER := Vector2(-70.0, 60.0)
 const LAKE_RADIUS := 85.0

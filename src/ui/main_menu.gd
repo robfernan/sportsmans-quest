@@ -24,6 +24,8 @@ func _ready() -> void:
 
 func _on_start_pressed() -> void:
 	print("[Sportsman's Quest] Launching hunt expedition...")
+	start_btn.text = "ENTERING WHISPERING PINES..."
+	start_btn.disabled = true
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_lodge_pressed() -> void:

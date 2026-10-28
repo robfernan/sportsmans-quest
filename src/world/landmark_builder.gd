@@ -58,7 +58,7 @@ static func build_hunting_stand() -> Node3D:
 		rail.material_override = mat_wood
 		root.add_child(rail)
 		
-	# Ladder rungs
+	# Ladder rungs & climbing collision
 	for i in 8:
 		var rung := MeshInstance3D.new()
 		rung.mesh = box
@@ -76,6 +76,19 @@ static func build_hunting_stand() -> Node3D:
 	static_body.position = Vector3(0, 4.2, 0)
 	static_body.add_child(col_shape)
 	root.add_child(static_body)
+
+	# Interactive Stand Ladder (Press E to climb up / down)
+	var ladder_area := Area3D.new()
+	ladder_area.name = "StandLadderArea"
+	ladder_area.position = Vector3(0.6, 2.1, 1.25)
+	ladder_area.set_meta("interaction_type", "hunting_stand")
+	ladder_area.set_meta("stand_root", root)
+	var l_col := CollisionShape3D.new()
+	var l_box := BoxShape3D.new()
+	l_box.size = Vector3(1.6, 4.4, 1.6)
+	l_col.shape = l_box
+	ladder_area.add_child(l_col)
+	root.add_child(ladder_area)
 	
 	return root
 
@@ -185,5 +198,42 @@ static func build_trapper_cabin() -> Node3D:
 	mat_stone.albedo_color = Color(0.28, 0.28, 0.30)
 	chimney.material_override = mat_stone
 	root.add_child(chimney)
+
+	# Cabin Interior Floor & Shelter Area (Press E to rest / visit Trophy Lodge)
+	var cabin_area := Area3D.new()
+	cabin_area.name = "CabinDoorArea"
+	cabin_area.position = Vector3(0, 1.2, 0)
+	cabin_area.set_meta("interaction_type", "trapper_cabin")
+	var c_col := CollisionShape3D.new()
+	var c_box := BoxShape3D.new()
+	c_box.size = Vector3(4.8, 2.8, 4.0)
+	c_col.shape = c_box
+	cabin_area.add_child(c_col)
+	root.add_child(cabin_area)
+
+	# Cabin Floor
+	var floor_m := MeshInstance3D.new()
+	floor_m.mesh = box
+	floor_m.scale = Vector3(5.2, 0.15, 4.2)
+	floor_m.position = Vector3(0, 0.08, 0)
+	floor_m.material_override = mat_log
+	root.add_child(floor_m)
 	
+	var floor_col := StaticBody3D.new()
+	var fc_shape := CollisionShape3D.new()
+	var fc_box := BoxShape3D.new()
+	fc_box.size = Vector3(5.2, 0.15, 4.2)
+	fc_shape.shape = fc_box
+	floor_col.add_child(fc_shape)
+	floor_col.position = Vector3(0, 0.08, 0)
+	root.add_child(floor_col)
+
+	# Warm cabin oil lantern inside
+	var lantern_light := OmniLight3D.new()
+	lantern_light.position = Vector3(0, 2.2, 0)
+	lantern_light.light_color = Color(1.0, 0.72, 0.35)
+	lantern_light.light_energy = 1.4
+	lantern_light.omni_range = 7.0
+	root.add_child(lantern_light)
+
 	return root
