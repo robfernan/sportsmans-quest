@@ -56,6 +56,8 @@ var third_person_mesh: Node3D = null
 var _gun_audio: AudioStreamPlayer
 var _call_audio: AudioStreamPlayer
 var _click_audio: AudioStreamPlayer
+var _footstep_audio: AudioStreamPlayer
+var _step_timer: float = 0.0
 
 # Pre-synthesized audio streams
 var _rifle_sound: AudioStreamWAV
@@ -63,6 +65,9 @@ var _shotgun_sound: AudioStreamWAV
 var _grunt_sound: AudioStreamWAV
 var _quack_sound: AudioStreamWAV
 var _click_sound: AudioStreamWAV
+var _foot_turf_sound: AudioStreamWAV
+var _foot_water_sound: AudioStreamWAV
+var _foot_wood_sound: AudioStreamWAV
 
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
@@ -97,18 +102,24 @@ func _init_audio() -> void:
 	_gun_audio = AudioStreamPlayer.new()
 	_call_audio = AudioStreamPlayer.new()
 	_click_audio = AudioStreamPlayer.new()
+	_footstep_audio = AudioStreamPlayer.new()
 	_gun_audio.volume_db = -10.0
 	_call_audio.volume_db = -8.0
 	_click_audio.volume_db = -12.0
+	_footstep_audio.volume_db = -18.0
 	add_child(_gun_audio)
 	add_child(_call_audio)
 	add_child(_click_audio)
+	add_child(_footstep_audio)
 
 	_rifle_sound = AudioSynth.gunshot(true)
 	_shotgun_sound = AudioSynth.gunshot(false)
 	_grunt_sound = AudioSynth.grunt_call()
 	_quack_sound = AudioSynth.quack()
 	_click_sound = AudioSynth.click()
+	_foot_turf_sound = AudioSynth.footstep_turf()
+	_foot_water_sound = AudioSynth.footstep_water()
+	_foot_wood_sound = AudioSynth.footstep_wood()
 
 func _input(event: InputEvent) -> void:
 	# If Harvest Card or Huntermate Map is visible, let UI process mouse/keys freely!
@@ -463,7 +474,26 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0, current_speed)
 
 	move_and_slide()
+	_handle_footstep_audio(delta, get_current_speed())
 	_update_huntermate_tracking()
+
+func _handle_footstep_audio(delta: float, speed: float) -> void:
+	if not is_on_floor() or speed < 0.4 or is_in_kayak:
+		return
+	_step_timer -= delta * (speed * 1.5)
+	if _step_timer <= 0.0:
+		_step_timer = 1.0
+		# Detect surface under hunter
+		if global_position.y <= Terrain.WATER_LEVEL + 0.3:
+			_footstep_audio.stream = _foot_water_sound
+			_footstep_audio.volume_db = -16.0
+		elif global_position.y > 4.0: # High stand or wooden dock
+			_footstep_audio.stream = _foot_wood_sound
+			_footstep_audio.volume_db = -18.0
+		else:
+			_footstep_audio.stream = _foot_turf_sound
+			_footstep_audio.volume_db = -22.0
+		_footstep_audio.play()
 
 func _update_huntermate_tracking() -> void:
 	current_clue = ""

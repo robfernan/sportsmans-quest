@@ -120,6 +120,47 @@ static func click() -> AudioStreamWAV:
 		s[i] = (randf() * 2.0 - 1.0) * exp(-t * 80.0) * 0.25
 	return _to_wav(s)
 
+static func footstep_turf() -> AudioStreamWAV:
+	# Subtle, deep turf/moss footsteps crunch
+	var n := int(RATE * 0.18)
+	var s := PackedFloat32Array(); s.resize(n)
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var noise := randf() * 2.0 - 1.0
+		lp = lerp(lp, noise, 0.25)
+		var env := exp(-t * 35.0) * sin(clamp(t / 0.18, 0.0, 1.0) * PI)
+		s[i] = lp * env * 0.22
+	return _to_wav(s)
+
+static func footstep_water() -> AudioStreamWAV:
+	# Shallow water splash step
+	var n := int(RATE * 0.26)
+	var s := PackedFloat32Array(); s.resize(n)
+	var phase := 0.0
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var f: float = lerp(600.0, 180.0, t / 0.26)
+		phase += TAU * f / RATE
+		lp = lerp(lp, randf() * 2.0 - 1.0, 0.15)
+		var env := exp(-t * 22.0)
+		s[i] = (sin(phase) * 0.4 + lp * 0.6) * env * 0.25
+	return _to_wav(s)
+
+static func footstep_wood() -> AudioStreamWAV:
+	# Hollow resonant dock/ladder thud
+	var n := int(RATE * 0.16)
+	var s := PackedFloat32Array(); s.resize(n)
+	var phase := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var f: float = lerp(140.0, 70.0, t / 0.16)
+		phase += TAU * f / RATE
+		var env := exp(-t * 40.0)
+		s[i] = sin(phase) * env * 0.35
+	return _to_wav(s)
+
 static func wolf_howl() -> AudioStreamWAV:
 	var n := int(RATE * 2.8)
 	var s := PackedFloat32Array(); s.resize(n)
