@@ -4,11 +4,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Engine: Godot 4](https://img.shields.io/badge/Engine-Godot%204.x-blue.svg)](https://godotengine.org)
-[![Build Size](https://img.shields.io/badge/Data%20Size-~240%20KB-orange.svg)](#architecture)
+[![Build Size](https://img.shields.io/badge/Data%20Package-240%20KB-orange.svg)](#architecture)
 [![Status: Released](https://img.shields.io/badge/Status-Released%20on%20Itch.io-red.svg)](https://mungdaal321.itch.io/sportsman-quest)
 [![Releases](https://img.shields.io/github/v/release/robfernan/sportsmans-quest)](https://github.com/robfernan/sportsmans-quest/releases/tag/v1.0.0)
 
-> **An ultra-lightweight, offline-first 3D stalking hunting simulation & Halloween cryptid hunt.**
+> **An ultra-lean, offline-first 3D stalking hunting simulation & Halloween cryptid hunt.**
 > Built as an open-source homage to retro hunting classics and the golden era of *theHunter Classic*.
 
 ![In-Game Gameplay Screenshot](media_screenshot.png)
@@ -18,24 +18,24 @@
 ## 🎮 Play & Download
 
 - **Itch.io Storefront**: [https://mungdaal321.itch.io/sportsman-quest](https://mungdaal321.itch.io/sportsman-quest)
-- **Windows Standalone**: Download `SportsmansQuest_Windows_ReadyToPlay.zip` from releases or Itch.
-- **Web (HTML5)**: Zero-install in-browser gameplay powered by WebGL/WebAssembly.
+- **Windows Standalone**: `SportsmansQuest_Windows_ReadyToPlay.zip` (self-contained, no install required).
+- **Web (HTML5)**: `SportsmansQuest_Web.zip` (play directly in the browser via WebGL).
 
 ---
 
-## ⚡ Core Architecture: How It Runs in Under 1 MB
+## ⚡ Core Architecture: Procedural Efficiency
 
 Commercial hunting games (*theHunter: Call of the Wild*, *Way of the Hunter*) require **30 GB to 60 GB** of high-resolution photogrammetry textures, rigged meshes, and baked audio. 
 
 **Sportsman's Quest** takes the opposite design philosophy: **100% procedural generation with zero external textures, zero .gltf files, and zero pre-recorded audio files**.
 
-| Subsystem | Traditional Games | Sportsman's Quest (< 250 KB) |
+| Subsystem | Traditional Games | Sportsman's Quest |
 | :--- | :--- | :--- |
 | **Terrain** | Multi-GB 4K normal/albedo textures | Multi-frequency analytical sine/hash noise shader ([`terrain.gdshader`](src/world/terrain.gdshader)) |
 | **Vegetation** | High-poly tree models + LOD meshes | Procedural conifer geometry with wind-vertex sway shaders instanced on GPU via `MultiMesh` |
 | **Audio** | Uncompressed .wav / .ogg sound banks | 100% synthetic PCM sound generation in real-time math ([`audio_synth.gd`](src/core/audio_synth.gd)) |
 | **Wildlife** | Gigabytes of rigged skinned meshes | Algorithmic hierarchical jointed box/capsule models generated dynamically |
-| **Package** | 30+ GB | **~240 KB game data** (`dist/SportsmansQuest.pck`) |
+| **Game Data Package** | 30+ GB | **~240 KB game data** (`dist/SportsmansQuest.pck`) |
 
 ---
 
