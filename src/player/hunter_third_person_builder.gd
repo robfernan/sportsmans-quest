@@ -217,36 +217,34 @@ static func apply_pose(mesh_root: Node3D, pose: Pose) -> void:
 			r_leg.rotation = Vector3(0, deg_to_rad(-15), 0)
 
 		Pose.GROUND_KNEEL:
-			# Kneeling down right next to the fallen trophy with hand resting on it
-			anchor.position = Vector3(0, -0.48, 0)
-			# Right knee on ground, left knee forward
-			r_leg.rotation = Vector3(deg_to_rad(85), deg_to_rad(-10), 0)
-			l_leg.rotation = Vector3(deg_to_rad(-70), deg_to_rad(10), 0)
-			# Arms posed touching animal antlers/fur
-			l_arm.rotation = Vector3(deg_to_rad(-65), deg_to_rad(30), deg_to_rad(-25))
-			r_arm.rotation = Vector3(deg_to_rad(-55), deg_to_rad(-20), deg_to_rad(20))
+			# Respectful one-knee ground kneel next to harvest
+			anchor.position = Vector3(0, -0.42, 0)
+			r_leg.rotation = Vector3(deg_to_rad(75), deg_to_rad(-10), 0)
+			l_leg.rotation = Vector3(deg_to_rad(-45), deg_to_rad(10), 0)
+			l_arm.rotation = Vector3(deg_to_rad(-45), deg_to_rad(20), deg_to_rad(-15))
+			r_arm.rotation = Vector3(deg_to_rad(-40), deg_to_rad(-15), deg_to_rad(15))
 			if head:
-				head.rotation = Vector3(deg_to_rad(15), deg_to_rad(-10), 0)
+				head.rotation = Vector3(deg_to_rad(12), deg_to_rad(-10), 0)
 			if rifle:
-				rifle.position = Vector3(0.35, 0.45, 0.1)
-				rifle.rotation = Vector3(deg_to_rad(75), 0, deg_to_rad(-15))
+				rifle.position = Vector3(0.25, 0.2, 0.05)
+				rifle.rotation = Vector3(deg_to_rad(65), 0, deg_to_rad(-15))
 
 		Pose.GROUND_LOUNGE:
-			# Hilarious lounging / side reclining pose on the ground next to the beast!
-			anchor.position = Vector3(0, -0.72, 0)
-			anchor.rotation.z = deg_to_rad(18) # relaxed lean on elbow
-			# Left arm prop up head
-			l_arm.rotation = Vector3(deg_to_rad(25), 0, deg_to_rad(110))
-			# Right arm waving / resting leisurely across chest
-			r_arm.rotation = Vector3(deg_to_rad(-20), 0, deg_to_rad(-45))
-			# Legs stretched out horizontally on ground
-			l_leg.rotation = Vector3(deg_to_rad(80), deg_to_rad(30), deg_to_rad(-15))
-			r_leg.rotation = Vector3(deg_to_rad(85), deg_to_rad(-20), deg_to_rad(10))
+			# Relaxed ground lounge: hunter reclining comfortably on one hip with elbow propping up
+			anchor.position = Vector3(0, -0.65, 0)
+			anchor.rotation = Vector3(deg_to_rad(-10), deg_to_rad(20), deg_to_rad(25))
+			# Left arm resting on ground supporting torso
+			l_arm.rotation = Vector3(deg_to_rad(15), 0, deg_to_rad(65))
+			# Right arm resting relaxed across knee
+			r_arm.rotation = Vector3(deg_to_rad(-35), deg_to_rad(-15), deg_to_rad(15))
+			# Legs bent naturally sitting on the grass
+			l_leg.rotation = Vector3(deg_to_rad(65), deg_to_rad(25), deg_to_rad(-10))
+			r_leg.rotation = Vector3(deg_to_rad(40), deg_to_rad(-15), deg_to_rad(10))
 			if head:
-				head.rotation = Vector3(deg_to_rad(-12), deg_to_rad(15), deg_to_rad(-18))
+				head.rotation = Vector3(deg_to_rad(-8), deg_to_rad(-15), deg_to_rad(-15))
 			if rifle:
-				rifle.position = Vector3(0, 0.15, -0.4)
-				rifle.rotation = Vector3(0, deg_to_rad(90), deg_to_rad(90))
+				rifle.position = Vector3(0.2, -0.2, -0.3)
+				rifle.rotation = Vector3(deg_to_rad(75), deg_to_rad(45), deg_to_rad(15))
 
 		Pose.VICTORY_THUMBS_UP:
 			# Standing victory thumbs up with wide grin pose

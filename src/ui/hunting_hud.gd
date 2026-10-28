@@ -5,6 +5,8 @@ extends CanvasLayer
 ## Displays Wind Indicator, Stance/Noise, Weapon/Ammo, Rangefinder, Zeroing, and Huntermate Clues.
 
 @onready var wind_label: Label = $Margin/TopRight/WindLabel
+@onready var menu_btn: Button = $Margin/TopRight/MenuButton
+@onready var fullscreen_btn: Button = $Margin/TopRight/FullscreenButton
 @onready var stance_label: Label = $Margin/BottomLeft/StanceLabel
 @onready var clue_label: Label = $Margin/BottomLeft/ClueLabel
 @onready var range_label: Label = $Center/RangeLabel
@@ -19,6 +21,18 @@ func _ready() -> void:
 	hunter = get_tree().root.find_child("Hunter", true, false) as HunterController
 	wind_system = get_tree().root.find_child("WindSystem", true, false) as WindSystem
 	world = get_tree().root.find_child("Main", true, false)
+	
+	if menu_btn:
+		menu_btn.pressed.connect(toggle_pause)
+	if fullscreen_btn:
+		fullscreen_btn.pressed.connect(_toggle_fullscreen)
+
+func _toggle_fullscreen() -> void:
+	var mode = DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _process(_delta: float) -> void:
 	if not hunter:

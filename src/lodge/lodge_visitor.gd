@@ -24,10 +24,10 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= 9.8 * delta
 		
 	var input_dir := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_W): input_dir.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S): input_dir.y += 1.0
-	if Input.is_physical_key_pressed(KEY_A): input_dir.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D): input_dir.x += 1.0
+	if Input.is_action_pressed("move_forward") or Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_W): input_dir.y -= 1.0
+	if Input.is_action_pressed("move_backward") or Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_S): input_dir.y += 1.0
+	if Input.is_action_pressed("move_left") or Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_A): input_dir.x -= 1.0
+	if Input.is_action_pressed("move_right") or Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_D): input_dir.x += 1.0
 	input_dir = input_dir.normalized()
 	
 	var dir = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()

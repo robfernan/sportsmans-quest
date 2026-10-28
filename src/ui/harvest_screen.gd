@@ -118,12 +118,18 @@ func _on_pose_photo_pressed() -> void:
 		hunter.set_third_person_visible(true)
 		hunter.set_photo_pose(pose_enums[current_pose_idx])
 		
-		# Position the hunter right next to the fallen animal/monster!
+		# Position the hunter right next to the fallen animal/monster on the ground
 		if target_animal and is_instance_valid(target_animal):
 			var a_pos = target_animal.global_position
 			var offset_dir = target_animal.global_transform.basis.x
-			hunter.global_position = a_pos + (offset_dir * 0.95)
-			hunter.look_at(a_pos + (target_animal.global_transform.basis.z * 1.5), Vector3.UP)
+			var h_pos = a_pos + (offset_dir * 1.1)
+			var world = get_tree().root.find_child("Main", true, false)
+			if world and world.terrain:
+				h_pos.y = world.terrain.height_at(h_pos.x, h_pos.z) + 0.9
+			hunter.global_position = h_pos
+			hunter.look_at(a_pos, Vector3.UP)
+			hunter.rotation.x = 0
+			hunter.rotation.z = 0
 		
 		# Create or activate a world-space photo camera focused on the hunter & harvest
 		if not photo_camera:
