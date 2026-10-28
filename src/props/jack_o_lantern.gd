@@ -66,14 +66,14 @@ func _build_pumpkin() -> void:
 	mouth.material_override = mat_glow
 	add_child(mouth)
 
-	# Flickering candle point light
+	# Flickering candle point light (Shadows disabled for 60fps web performance)
 	var candle := OmniLight3D.new()
 	candle.name = "CandleLight"
 	candle.position = Vector3(0, 0.02, -0.15)
 	candle.light_color = Color(1.0, 0.65, 0.15)
-	candle.light_energy = 1.8
-	candle.omni_range = 6.0
-	candle.shadow_enabled = true
+	candle.light_energy = 1.6
+	candle.omni_range = 5.0
+	candle.shadow_enabled = false
 	add_child(candle)
 
 func _process(_delta: float) -> void:

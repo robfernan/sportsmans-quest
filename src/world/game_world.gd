@@ -63,9 +63,9 @@ func _setup_environment() -> void:
 	# Eerie Harvest Blood Moon Light
 	var moon := DirectionalLight3D.new()
 	moon.transform = Transform3D(Basis(Vector3.UP, deg_to_rad(35.0)) * Basis(Vector3.RIGHT, deg_to_rad(-40.0)), Vector3(0, 50, 0))
-	moon.shadow_enabled = true
+	moon.shadow_enabled = false # Disabled real-time directional shadow mapping for silky smooth 60fps WebGL
 	moon.light_color = Color(0.85, 0.65, 0.95) # Pale lunar lavender
-	moon.light_energy = 0.85
+	moon.light_energy = 0.9
 	add_child(moon)
 
 func _build_terrain_and_nature() -> void:

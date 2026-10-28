@@ -32,13 +32,12 @@ void vertex() {
 void fragment() {
 	vec2 p = wpos.xz;
 	
-	// Multi-frequency procedural noise
-	float n1 = noise(p * 0.12);
-	float n2 = noise(p * 0.85);
-	float n3 = noise(p * 4.2);
-	float detail = (n1 * 0.5 + n2 * 0.35 + n3 * 0.15);
+	// Single-step procedural noise (blazing fast WebGL fragment shader)
+	float n1 = noise(p * 0.15);
+	float n2 = noise(p * 0.9);
+	float detail = (n1 * 0.65 + n2 * 0.35);
 	
-	// Rich earthy autumn palette: warm meadow green, conifer needles/moss, rocky loam, and wet shoreline mud
+	// Rich earthy autumn palette
 	vec3 col_grass = mix(vec3(0.18, 0.28, 0.12), vec3(0.26, 0.35, 0.14), detail);
 	vec3 col_needles = mix(vec3(0.24, 0.18, 0.10), vec3(0.19, 0.22, 0.11), detail);
 	vec3 col_rock = mix(vec3(0.26, 0.25, 0.24), vec3(0.33, 0.31, 0.28), detail);
@@ -48,6 +47,11 @@ void fragment() {
 	vec3 col = mix(col_grass, col_needles, smoothstep(0.38, 0.62, n1));
 	col = mix(col, col_rock, smoothstep(0.25, 0.55, slope));
 	col = mix(col_mud, col, smoothstep(-0.2, 1.2, wpos.y));
+	
+	ALBEDO = col;
+	ROUGHNESS = 0.9;
+	SPECULAR = 0.1;
+}
 	
 	ALBEDO = col;
 	ROUGHNESS = 0.95;

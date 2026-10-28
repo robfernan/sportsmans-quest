@@ -18,13 +18,13 @@ var _grass_mesh: Mesh
 var _stump_mesh: Mesh
 
 var layers: Array = [
-	{"kind": "tree", "proc": 0, "count": 450, "scale": Vector2(0.8, 1.3), "min_h": 1.0, "slope": 0.45, "range": 450.0, "col": 0.35},
-	{"kind": "tree", "proc": 1, "count": 300, "scale": Vector2(0.8, 1.2), "min_h": 1.0, "slope": 0.45, "range": 450.0, "col": 0.35},
-	{"kind": "tree", "proc": 2, "count": 350, "scale": Vector2(0.7, 1.4), "min_h": 0.8, "slope": 0.5, "range": 160.0, "col": 0.0},
-	{"kind": "stump", "count": 80, "scale": Vector2(0.8, 1.3), "min_h": 0.5, "slope": 0.5, "range": 140.0, "col": 0.3},
-	{"kind": "rock", "count": 160, "scale": Vector2(0.8, 2.0), "min_h": -1.0, "slope": 0.8, "range": 220.0, "col": 0.0},
-	{"kind": "shrub", "count": 500, "scale": Vector2(0.7, 1.3), "min_h": 0.3, "slope": 0.6, "range": 120.0, "col": 0.0},
-	{"kind": "grass", "count": 1500, "scale": Vector2(0.9, 1.6), "min_h": 0.2, "slope": 0.5, "range": 60.0, "col": 0.0},
+	{"kind": "tree", "proc": 0, "count": 220, "scale": Vector2(0.8, 1.3), "min_h": 1.0, "slope": 0.45, "range": 350.0, "col": 0.35},
+	{"kind": "tree", "proc": 1, "count": 160, "scale": Vector2(0.8, 1.2), "min_h": 1.0, "slope": 0.45, "range": 350.0, "col": 0.35},
+	{"kind": "tree", "proc": 2, "count": 180, "scale": Vector2(0.7, 1.4), "min_h": 0.8, "slope": 0.5, "range": 160.0, "col": 0.0},
+	{"kind": "stump", "count": 45, "scale": Vector2(0.8, 1.3), "min_h": 0.5, "slope": 0.5, "range": 140.0, "col": 0.3},
+	{"kind": "rock", "count": 90, "scale": Vector2(0.8, 2.0), "min_h": -1.0, "slope": 0.8, "range": 220.0, "col": 0.0},
+	{"kind": "shrub", "count": 250, "scale": Vector2(0.7, 1.3), "min_h": 0.3, "slope": 0.6, "range": 120.0, "col": 0.0},
+	{"kind": "grass", "count": 600, "scale": Vector2(0.9, 1.6), "min_h": 0.2, "slope": 0.5, "range": 60.0, "col": 0.0},
 ]
 
 func _init_procedural_meshes() -> void:
