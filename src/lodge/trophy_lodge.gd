@@ -138,22 +138,32 @@ func _populate_harvested_trophies() -> void:
 		# Wooden Wall Shield Plaque
 		var plaque := MeshInstance3D.new()
 		plaque.mesh = box
-		plaque.scale = Vector3(0.1, 0.6, 0.45)
+		plaque.scale = Vector3(0.1, 0.7, 0.55)
 		plaque.position = Vector3(wall_x, 2.2, wall_z)
 		plaque.material_override = mat_plaque
 		add_child(plaque)
+		
+		# Full 3D Taxidermy Mount mounted on the wall plaque
+		var species_name: String = record.get("species_name", "Whitetail Deer")
+		var score: float = float(record.get("trophy_score", 0.0))
+		var gender: String = record.get("gender", "Male")
+		
+		var mount_3d = TrophyTaxidermyBuilder.build_taxidermy_mount(species_name, score, gender)
+		mount_3d.position = Vector3(wall_x + (0.05 if wall_x < 0 else -0.05), 2.2, wall_z)
+		mount_3d.rotation.y = deg_to_rad(90 if wall_x < 0 else -90)
+		add_child(mount_3d)
 		
 		# Plaque 3D label
 		var lbl := Label3D.new()
 		var photo_note = record.get("trophy_photo", "No Photo")
 		lbl.text = "🏆 %s\n%.1f PTS | %.1f kg\n📷 %s" % [
-			record.get("species_name", "Game"),
-			record.get("trophy_score", 0.0),
+			species_name,
+			score,
 			record.get("weight_kg", 0.0),
 			photo_note
 		]
 		lbl.font_size = 13
-		lbl.position = Vector3(wall_x + (0.12 if wall_x < 0 else -0.12), 2.15, wall_z)
+		lbl.position = Vector3(wall_x + (0.12 if wall_x < 0 else -0.12), 1.7, wall_z)
 		lbl.rotation.y = deg_to_rad(90 if wall_x < 0 else -90)
 		add_child(lbl)
 		
@@ -161,7 +171,7 @@ func _populate_harvested_trophies() -> void:
 		var frame := MeshInstance3D.new()
 		frame.mesh = box
 		frame.scale = Vector3(0.04, 0.45, 0.6)
-		frame.position = Vector3(wall_x + (0.05 if wall_x < 0 else -0.05), 1.45, wall_z)
+		frame.position = Vector3(wall_x + (0.05 if wall_x < 0 else -0.05), 1.15, wall_z)
 		var mat_frame := StandardMaterial3D.new()
 		mat_frame.albedo_color = Color(0.92, 0.90, 0.85) # Photo paper
 		frame.material_override = mat_frame
@@ -170,10 +180,10 @@ func _populate_harvested_trophies() -> void:
 		var photo_lbl := Label3D.new()
 		photo_lbl.text = "📸 FIELD PHOTO\n%s\n[Hunter & %s]" % [
 			photo_note,
-			record.get("species_name", "Trophy")
+			species_name
 		]
 		photo_lbl.font_size = 11
 		photo_lbl.modulate = Color(0.15, 0.12, 0.1)
-		photo_lbl.position = Vector3(wall_x + (0.08 if wall_x < 0 else -0.08), 1.45, wall_z)
+		photo_lbl.position = Vector3(wall_x + (0.08 if wall_x < 0 else -0.08), 1.15, wall_z)
 		photo_lbl.rotation.y = deg_to_rad(90 if wall_x < 0 else -90)
 		add_child(photo_lbl)
