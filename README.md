@@ -1,12 +1,17 @@
 # 🌲 Sportsman's Quest: Whispering Pines Reserve
 
+![Sportsman's Quest Banner](media_banner.jpg)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Engine: Godot 4](https://img.shields.io/badge/Engine-Godot%204.x-blue.svg)](https://godotengine.org)
 [![Build Size](https://img.shields.io/badge/Data%20Size-~240%20KB-orange.svg)](#architecture)
 [![Status: Released](https://img.shields.io/badge/Status-Released%20on%20Itch.io-red.svg)](https://mungdaal321.itch.io/sportsman-quest)
+[![Releases](https://img.shields.io/github/v/release/robfernan/sportsmans-quest)](https://github.com/robfernan/sportsmans-quest/releases/tag/v1.0.0)
 
 > **An ultra-lightweight, offline-first 3D stalking hunting simulation & Halloween cryptid hunt.**
 > Built as an open-source homage to retro hunting classics and the golden era of *theHunter Classic*.
+
+![In-Game Gameplay Screenshot](media_screenshot.png)
 
 ---
 
