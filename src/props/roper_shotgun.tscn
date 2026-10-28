@@ -1,0 +1,102 @@
+[gd_scene load_steps=10 format=3 uid="uid://r0p3r7m8q5x2"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_walnut"]
+albedo_color = Color(0.28, 0.15, 0.08, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_case_hardened"]
+albedo_color = Color(0.45, 0.42, 0.38, 1)
+metallic = 0.85
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blued_steel"]
+albedo_color = Color(0.16, 0.18, 0.20, 1)
+metallic = 0.9
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.85, 0.72, 0.35, 1)
+metallic = 0.95
+roughness = 0.2
+
+[sub_resource type="BoxMesh" id="BoxMesh_stock"]
+material = SubResource("StandardMaterial3D_walnut")
+size = Vector3(0.042, 0.115, 0.44)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wrist"]
+material = SubResource("StandardMaterial3D_walnut")
+size = Vector3(0.038, 0.055, 0.16)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_drum"]
+material = SubResource("StandardMaterial3D_case_hardened")
+top_radius = 0.036
+bottom_radius = 0.036
+height = 0.135
+
+[sub_resource type="BoxMesh" id="BoxMesh_receiver_frame"]
+material = SubResource("StandardMaterial3D_case_hardened")
+size = Vector3(0.044, 0.075, 0.16)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_barrel"]
+material = SubResource("StandardMaterial3D_blued_steel")
+top_radius = 0.014
+bottom_radius = 0.018
+height = 0.88
+
+[node name="RoperShotgun" type="Node3D"]
+
+[node name="Stock" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.987688, 0.156434, 0, -0.156434, 0.987688, 0, -0.062, 0.28)
+mesh = SubResource("BoxMesh_stock")
+
+[node name="CrescentButtplate" type="MeshInstance3D" parent="Stock"]
+transform = Transform3D(1.05, 0, 0, 0, 1.02, 0, 0, 0, 0.05, 0, 0, 0.22)
+mesh = SubResource("BoxMesh_stock")
+
+[node name="Wrist" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.996195, 0.0871557, 0, -0.0871557, 0.996195, 0, -0.032, 0.08)
+mesh = SubResource("BoxMesh_wrist")
+
+[node name="ReceiverFrame" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.008, -0.04)
+mesh = SubResource("BoxMesh_receiver_frame")
+
+[node name="RevolvingDrumHousing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.006, -0.04)
+mesh = SubResource("CylinderMesh_drum")
+
+[node name="TopInspectionTrapdoor" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.8, 0, 0, 0, 0.12, 0, 0, 0, 0.8, 0, 0.044, -0.04)
+mesh = SubResource("BoxMesh_receiver_frame")
+
+[node name="HingeLatch" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.4, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0, 0.052, -0.03)
+mesh = SubResource("BoxMesh_receiver_frame")
+
+[node name="Hammer" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.3, 0, 0, 0, 0.5, -0.3, 0, 0.3, 0.5, -0.016, 0.045, 0.04)
+mesh = SubResource("BoxMesh_receiver_frame")
+
+[node name="TriggerGuard" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.25, 0, 0, 0, 0.3, 0, 0, 0, 0.35, 0, -0.052, 0.02)
+mesh = SubResource("CylinderMesh_drum")
+
+[node name="WalnutForend" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.85, 0, 0, 0, 0.55, 0, 0, 0, 0.65, 0, -0.016, -0.24)
+mesh = SubResource("BoxMesh_stock")
+
+[node name="SteelForendNosecap" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9, 0, 0, 0, 0.6, 0, 0, 0, 0.08, 0, -0.016, -0.39)
+mesh = SubResource("BoxMesh_receiver_frame")
+
+[node name="LongBarrel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.008, -0.56)
+mesh = SubResource("CylinderMesh_barrel")
+
+[node name="RoperMuzzleChokeCollar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1.2, 0, 0, 0, -2.18557e-09, 0.05, 0, -1, -4.37114e-08, 0, 0.008, -0.99)
+mesh = SubResource("CylinderMesh_barrel")
+
+[node name="FrontBeadSight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.12, 0, 0, 0, 0.12, 0, 0, 0, 0.12, 0, 0.028, -0.98)
+mesh = SubResource("BoxMesh_receiver_frame")

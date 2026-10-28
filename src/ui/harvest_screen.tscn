@@ -1,0 +1,167 @@
+[gd_scene load_steps=3 format=3 uid="uid://c3m7r5t1w8q2"]
+
+[ext_resource type="Script" path="res://src/ui/harvest_screen.gd" id="1_harvest"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.12, 0.15, 0.12, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.72, 0.45, 0.8)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_size = 8
+
+[node name="HarvestScreen" type="CanvasLayer"]
+process_mode = 3
+layer = 20
+script = ExtResource("1_harvest")
+
+[node name="Panel" type="Panel" parent="."]
+custom_minimum_size = Vector2(460, 420)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -210.0
+offset_right = 230.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.75, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "— TROPHY CONFIRMATION & HARVEST LOG —"
+horizontal_alignment = 1
+
+[node name="SpeciesTitle" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.92, 0.82, 1)
+theme_override_font_sizes/font_size = 28
+text = "WHITETAIL DEER (BUCK)"
+horizontal_alignment = 1
+
+[node name="TrophyScore" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.80, 0.35, 1)
+theme_override_font_sizes/font_size = 22
+text = "BOONE & CROCKETT: 148.5 PTS"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+text = "Weight: 84.2 kg  |  Gender: Male  |  08:15 AM"
+horizontal_alignment = 1
+
+[node name="ShotDetailsLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.82, 0.78, 1)
+theme_override_font_sizes/font_size = 14
+text = "WEAPON: .308 Bolt-Action Rifle
+HIT ORGAN: Heart (Instant Vital)
+SHOT DISTANCE: 92.4 METERS
+ETHICS RATING: 100%"
+
+[node name="Spacer" type="Control" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PhotoButton" type="Button" parent="Panel/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "📷 TROPHY POSE PHOTO"
+
+[node name="AcceptButton" type="Button" parent="Panel/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "CLAIM HARVEST"
+
+[node name="PhotoHUD" type="Panel" parent="."]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = -90.0
+offset_right = 320.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="HBox" type="HBoxContainer" parent="PhotoHUD"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="PoseButton" type="Button" parent="PhotoHUD/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "🤸 POSE: KNEEL"
+
+[node name="CamAngleButton" type="Button" parent="PhotoHUD/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "🔄 CAM ANGLE"
+
+[node name="SnapButton" type="Button" parent="PhotoHUD/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "📸 SNAP PHOTO"
+
+[node name="DoneButton" type="Button" parent="PhotoHUD/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "RETURN"
+
+[node name="PhotoFlash" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.9)

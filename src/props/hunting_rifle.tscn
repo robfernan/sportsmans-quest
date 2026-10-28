@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3 uid="uid://f4k8h2m9q1x3"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wood"]
+albedo_color = Color(0.38, 0.22, 0.12, 1)
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_stock"]
+material = SubResource("StandardMaterial3D_wood")
+size = Vector3(0.06, 0.12, 0.75)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
+albedo_color = Color(0.12, 0.14, 0.16, 1)
+metallic = 0.85
+roughness = 0.25
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_barrel"]
+material = SubResource("StandardMaterial3D_metal")
+top_radius = 0.016
+bottom_radius = 0.02
+height = 0.85
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_scope"]
+material = SubResource("StandardMaterial3D_metal")
+top_radius = 0.025
+bottom_radius = 0.025
+height = 0.35
+
+[node name="HuntingRifle" type="Node3D"]
+
+[node name="Stock" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0.15)
+mesh = SubResource("BoxMesh_stock")
+
+[node name="Barrel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.03, -0.35)
+mesh = SubResource("CylinderMesh_barrel")
+
+[node name="Scope" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.085, -0.05)
+mesh = SubResource("CylinderMesh_scope")

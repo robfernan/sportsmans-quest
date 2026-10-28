@@ -1,0 +1,13 @@
+# Godot 4 & Engine Cache
+.godot/
+*.tmp
+*.uid
+
+# Large editor binaries in dist (keep only pck, scripts, and launcher)
+dist/SportsmansQuest.exe
+dist/*.zip
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+.DS_Store
