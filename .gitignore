@@ -6,6 +6,15 @@
 # Large editor binaries in dist (keep only pck, scripts, and launcher)
 dist/SportsmansQuest.exe
 dist/*.zip
+dist/web/
+dist/web_build/
+dist/web_inspect/
+dist/tmp_chrome/
+dist/coi-serviceworker.min.js
+dist/*.jpg
+dist/*.png
+dist/*.import
+*.import
 
 # OS artifacts
 Thumbs.db

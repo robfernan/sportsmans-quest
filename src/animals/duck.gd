@@ -33,9 +33,11 @@ func setup(w: Node, pos: Vector3) -> void:
 	super.setup(w, pos)
 	_quack = AudioStreamPlayer3D.new()
 	_quack.stream = AudioSynth.quack()
-	_quack.unit_size = 10.0
+	_quack.unit_size = 2.5
+	_quack.max_distance = 35.0
+	_quack.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	add_child(_quack)
-	_quack_timer = randf_range(4.0, 20.0)
+	_quack_timer = randf_range(15.0, 45.0)
 	global_position.y = Terrain.WATER_LEVEL
 
 func _collision_shape() -> Shape3D:
@@ -50,13 +52,13 @@ func _build_model() -> Node3D:
 	var root := Node3D.new()
 	var sphere := SphereMesh.new(); sphere.radial_segments = 10; sphere.rings = 5
 	var body_c := Color(0.55, 0.5, 0.45) if gender == "Male" else Color(0.5, 0.38, 0.25)
-	var head_c := Color(0.05, 0.35, 0.15) if gender == "Male" else Color(0.45, 0.33, 0.22)
+	var head_c := Color(0.05, 0.45, 0.18) if gender == "Male" else Color(0.45, 0.33, 0.22) # Emerald green head
 	var parts := [
-		[body_c, Vector3(0, 0.1, 0), Vector3(0.24, 0.18, 0.42)],
-		[Color(0.35, 0.2, 0.12) if gender == "Male" else body_c, Vector3(0, 0.13, -0.15), Vector3(0.2, 0.17, 0.18)],
-		[head_c, Vector3(0, 0.3, -0.2), Vector3(0.11, 0.11, 0.13)],
-		[Color(0.9, 0.75, 0.2), Vector3(0, 0.28, -0.3), Vector3(0.05, 0.03, 0.09)],
-		[Color(0.1, 0.1, 0.1), Vector3(0, 0.15, 0.22), Vector3(0.1, 0.06, 0.1)],
+		[body_c, Vector3(0, 0.18, 0), Vector3(0.38, 0.28, 0.62)],
+		[Color(0.38, 0.22, 0.14) if gender == "Male" else body_c, Vector3(0, 0.22, -0.22), Vector3(0.32, 0.26, 0.28)],
+		[head_c, Vector3(0, 0.48, -0.32), Vector3(0.18, 0.18, 0.22)],
+		[Color(0.95, 0.78, 0.15), Vector3(0, 0.45, -0.48), Vector3(0.08, 0.05, 0.15)], # Yellow bill
+		[Color(0.1, 0.1, 0.1), Vector3(0, 0.25, 0.35), Vector3(0.16, 0.1, 0.16)], # Tail
 	]
 	for p in parts:
 		var mi := MeshInstance3D.new()
@@ -66,16 +68,16 @@ func _build_model() -> Node3D:
 		mi.position = p[1]
 		mi.scale = p[2]
 		root.add_child(mi)
-	var wing_mesh := BoxMesh.new(); wing_mesh.size = Vector3(0.38, 0.02, 0.18)
+	var wing_mesh := BoxMesh.new(); wing_mesh.size = Vector3(0.65, 0.03, 0.28)
 	var wm := StandardMaterial3D.new(); wm.albedo_color = body_c.darkened(0.15)
 	for sx in [-1, 1]:
 		var pivot := Node3D.new()
-		pivot.position = Vector3(0.1 * sx, 0.16, 0.0)
+		pivot.position = Vector3(0.18 * sx, 0.26, 0.0)
 		root.add_child(pivot)
 		var w := MeshInstance3D.new()
 		w.mesh = wing_mesh
 		w.material_override = wm
-		w.position = Vector3(0.19 * sx, 0, 0)
+		w.position = Vector3(0.32 * sx, 0, 0)
 		pivot.add_child(w)
 		pivot.visible = false
 		wings.append(pivot)
@@ -86,6 +88,8 @@ func _physics_process(delta: float) -> void:
 		return
 	if state == State.DEAD and dstate != DuckState.FALLING:
 		return
+	# Ensure duck 3D model is always rendered for nearby and flying ducks
+	model.visible = true
 	match dstate:
 		DuckState.SWIM: _swim(delta)
 		DuckState.WALK: _walk_shoreline(delta)
@@ -93,8 +97,9 @@ func _physics_process(delta: float) -> void:
 		DuckState.FALLING: _fall(delta)
 	_quack_timer -= delta
 	if _quack_timer <= 0.0 and state != State.DEAD:
-		_quack_timer = randf_range(12.0, 35.0)
-		_quack.play()
+		_quack_timer = randf_range(18.0, 50.0)
+		if world and world.hunter and global_position.distance_to(world.hunter.global_position) < 35.0:
+			_quack.play()
 
 func _swim(delta: float) -> void:
 	global_position.y = Terrain.WATER_LEVEL + sin(Time.get_ticks_msec() * 0.002 + get_instance_id()) * 0.02

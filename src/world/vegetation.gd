@@ -113,7 +113,7 @@ func _scatter(layer: Dictionary, total: int, keep_clear: Vector3) -> void:
 	var half := Terrain.SIZE * 0.48
 	var max_range: float = layer.range
 	var max_range_sq := max_range * max_range
-	var chunks := {}
+	var all_xfs: Array = []
 
 	for i in total:
 		var x := rng.randf_range(-half, half)
@@ -133,28 +133,30 @@ func _scatter(layer: Dictionary, total: int, keep_clear: Vector3) -> void:
 		var s := rng.randf_range(layer.scale.x, layer.scale.y)
 		var t_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s))
 		var xf := Transform3D(t_basis, Vector3(x, h - 0.05, z))
-		var key := Vector2i(int(floor(x / CHUNK)), int(floor(z / CHUNK)))
-		if not chunks.has(key):
-			chunks[key] = []
-		chunks[key].append(xf)
-		if layer.col > 0.0:
+		all_xfs.append(xf)
+		
+		# Add solid colliders for major trunks near player routes (max 45 solid trunks to keep Web physics ultra-fast)
+		if layer.col > 0.0 and tree_body.get_child_count() < 45 and Vector2(x, z).distance_to(Vector2(keep_clear.x, keep_clear.z)) < 130.0:
 			var cs := CollisionShape3D.new()
 			var cyl := CylinderShape3D.new()
-			cyl.radius = layer.col * s * 0.8
+			cyl.radius = layer.col * s * 0.75
 			cyl.height = 10.0 * s
 			cs.shape = cyl
 			cs.position = Vector3(x, h + cyl.height * 0.5, z)
 			tree_body.add_child(cs)
 
-	for key in chunks:
-		var xfs: Array = chunks[key]
-		for part in parts:
-			var mmi := MultiMeshInstance3D.new()
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.mesh = part.mesh
-			mm.instance_count = xfs.size()
-			for idx in xfs.size():
-				mm.set_instance_transform(idx, xfs[idx] * part.xf)
-			mmi.multimesh = mm
-			add_child(mmi)
+	if all_xfs.is_empty():
+		return
+
+	# Single unified MultiMesh per part: eliminates hundreds of draw calls on Web!
+	for part in parts:
+		var mmi := MultiMeshInstance3D.new()
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = part.mesh
+		mm.instance_count = all_xfs.size()
+		for idx in all_xfs.size():
+			mm.set_instance_transform(idx, all_xfs[idx] * part.xf)
+		mmi.multimesh = mm
+		mmi.visibility_range_end = 280.0
+		add_child(mmi)

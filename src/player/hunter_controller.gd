@@ -51,13 +51,27 @@ const MAX_HEALTH: float = 100.0
 
 # Third-person model node (shown during photo mode)
 var third_person_mesh: Node3D = null
+var is_photo_mode: bool = false
 
 # Audio players
 var _gun_audio: AudioStreamPlayer
 var _call_audio: AudioStreamPlayer
 var _click_audio: AudioStreamPlayer
 var _footstep_audio: AudioStreamPlayer
+var _fabric_audio: AudioStreamPlayer
+var _breathing_audio: AudioStreamPlayer
 var _step_timer: float = 0.0
+
+# Camera & Movement Juice
+var _head_target_y: float = 1.7
+var _crouch_dip: float = 0.0
+var _bob_phase: float = 0.0
+var _shake_pos: Vector3 = Vector3.ZERO
+var _shake_vel: Vector3 = Vector3.ZERO
+var _shake_rot_y: float = 0.0
+var _sprint_fov_factor: float = 0.0
+var _breath_cycle_timer: float = 0.0
+var _recent_sprint_timer: float = 0.0
 
 # Pre-synthesized audio streams
 var _rifle_sound: AudioStreamWAV
@@ -102,19 +116,40 @@ func set_photo_pose(pose_idx: int) -> void:
 		var pose_enum = pose_idx as HunterThirdPersonBuilder.Pose
 		HunterThirdPersonBuilder.apply_pose(third_person_mesh, pose_enum)
 
+func set_photo_mode_active(p_active: bool) -> void:
+	is_photo_mode = p_active
+	var col = get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col:
+		col.disabled = p_active
+	velocity = Vector3.ZERO
+	if not p_active:
+		var world = get_parent()
+		if world and world.terrain:
+			var half := Terrain.SIZE * 0.48
+			global_position.x = clamp(global_position.x, -half, half)
+			global_position.z = clamp(global_position.z, -half, half)
+			global_position.y = world.terrain.height_at(global_position.x, global_position.z) + 0.90
+			velocity = Vector3.ZERO
+
 func _init_audio() -> void:
 	_gun_audio = AudioStreamPlayer.new()
 	_call_audio = AudioStreamPlayer.new()
 	_click_audio = AudioStreamPlayer.new()
 	_footstep_audio = AudioStreamPlayer.new()
+	_fabric_audio = AudioStreamPlayer.new()
+	_breathing_audio = AudioStreamPlayer.new()
 	_gun_audio.volume_db = -10.0
 	_call_audio.volume_db = -8.0
 	_click_audio.volume_db = -12.0
 	_footstep_audio.volume_db = -18.0
+	_fabric_audio.volume_db = -14.0
+	_breathing_audio.volume_db = -20.0
 	add_child(_gun_audio)
 	add_child(_call_audio)
 	add_child(_click_audio)
 	add_child(_footstep_audio)
+	add_child(_fabric_audio)
+	add_child(_breathing_audio)
 
 	_rifle_sound = AudioSynth.gunshot(true)
 	_shotgun_sound = AudioSynth.gunshot(false)
@@ -126,10 +161,11 @@ func _init_audio() -> void:
 	_foot_wood_sound = AudioSynth.footstep_wood()
 
 func _input(event: InputEvent) -> void:
-	# If Harvest Card or Huntermate Map is visible, let UI process mouse/keys freely!
+	# If Harvest Card, Huntermate Map, or Pause Menu is visible, let UI process mouse/keys freely!
 	var hs = get_tree().root.find_child("HarvestScreen", true, false)
 	var hm = get_tree().root.find_child("HuntermateMap", true, false)
-	if (hs and hs.visible) or (hm and hm.visible):
+	var hud = get_tree().root.find_child("HuntingHUD", true, false)
+	if (hs and hs.visible) or (hm and hm.visible) or (hud and hud.is_paused):
 		return
 
 	# Click window to recapture mouse if lost
@@ -349,16 +385,38 @@ func _fire_rifle() -> void:
 	_recoil_kick = 0.16
 	_gun_audio.stream = _rifle_sound
 	_gun_audio.play()
+	_trigger_gunshot_shake()
+	
+	var origin = camera.global_position
+	var dir = -camera.global_transform.basis.z
+	
+	# Muzzle flash and shell casing ejection
+	if rifle_model and rifle_model.visible:
+		_spawn_muzzle_flash(rifle_model, Vector3(0, 0.05, -0.75))
+		_eject_shell_casing(rifle_model.global_position + Vector3(0.08, 0.05, -0.15), camera.global_transform.basis)
+		
+	# Gunshot acoustic reflection reverb
+	var dist_water = max(10.0, abs(origin.y - Terrain.WATER_LEVEL))
+	var reverb_sound = AudioSynth.gunshot_reverb(dist_water, 120.0)
+	var rev_player = AudioStreamPlayer.new()
+	rev_player.stream = reverb_sound
+	rev_player.volume_db = -14.0
+	add_child(rev_player)
+	rev_player.play()
+	rev_player.finished.connect(rev_player.queue_free)
+	
+	# Broadcast to EventBus
+	var eb = get_node_or_null("/root/EventBus")
+	if eb and eb.has_signal("gunshot_fired"):
+		eb.gunshot_fired.emit(global_position, dir, true)
+		
 	print("[Rifle] Shot fired! Echoing across the valley.")
 	
 	var world = get_parent()
 	if world and world.has_method("broadcast_gunshot"):
 		world.broadcast_gunshot(global_position)
 
-	var origin = camera.global_position
-	var dir = -camera.global_transform.basis.z
 	var space = get_world_3d().direct_space_state
-	
 	var wind_sys = get_tree().root.find_child("WindSystem", true, false) as WindSystem
 	var wind_vec = wind_sys.get_current_wind_vector() if wind_sys else Vector3.ZERO
 	
@@ -375,6 +433,10 @@ func _fire_rifle() -> void:
 		0.012,
 		2 # Animals layer
 	)
+	
+	# Bullet trail for shots > 30m
+	var target_point = traj.hit_pos if traj.hit else (origin + dir * 250.0)
+	_spawn_bullet_trail(origin + dir * 0.8, target_point)
 	
 	if traj.hit and traj.collider:
 		if traj.collider.has_method("take_hit"):
@@ -394,13 +456,25 @@ func _fire_shotgun() -> void:
 	_recoil_kick = 0.22
 	_gun_audio.stream = _shotgun_sound
 	_gun_audio.play()
+	_trigger_gunshot_shake()
 	
+	var origin = camera.global_position
+	var fwd = -camera.global_transform.basis.z
+	
+	# Muzzle flash and shell casing
+	if roper_shotgun_model and roper_shotgun_model.visible:
+		_spawn_muzzle_flash(roper_shotgun_model, Vector3(0, 0.06, -0.68))
+		_eject_shell_casing(roper_shotgun_model.global_position + Vector3(0.10, 0.06, -0.12), camera.global_transform.basis)
+		
+	# Broadcast to EventBus
+	var eb = get_node_or_null("/root/EventBus")
+	if eb and eb.has_signal("gunshot_fired"):
+		eb.gunshot_fired.emit(global_position, fwd, false)
+		
 	var world = get_parent()
 	if world and world.has_method("broadcast_gunshot"):
 		world.broadcast_gunshot(global_position)
 
-	var origin = camera.global_position
-	var fwd = -camera.global_transform.basis.z
 	var space = get_world_3d().direct_space_state
 
 	match current_shotgun_ammo:
@@ -437,8 +511,107 @@ func _fire_shotgun() -> void:
 			if hit and hit.collider and hit.collider.has_method("take_hit"):
 				var organ = hit.collider.take_hit(origin, fwd, "Roper 12GA (Rifled Slug)", false)
 				print("[Target Hit] Slug struck in: %s" % organ)
+			var slug_target = hit.position if hit else (origin + fwd * 180.0)
+			_spawn_bullet_trail(origin + fwd * 0.8, slug_target)
+
+func _trigger_gunshot_shake() -> void:
+	_shake_pos = Vector3(randf_range(-0.04, 0.04), 0.15, randf_range(0.04, 0.07))
+	_shake_vel = Vector3(randf_range(-0.4, 0.4), -1.4, randf_range(-0.6, -0.3))
+	_shake_rot_y = deg_to_rad(randf_range(-0.5, 0.5))
+
+func _apply_camera_shake(delta: float) -> void:
+	# Damped harmonic spring: k = 220.0, damping = 18.0
+	var spring_force = -220.0 * _shake_pos
+	var damping_force = -18.0 * _shake_vel
+	_shake_vel += (spring_force + damping_force) * delta
+	_shake_pos += _shake_vel * delta
+	_shake_rot_y = move_toward(_shake_rot_y, 0.0, delta * 3.5)
+
+func _spawn_muzzle_flash(parent_node: Node3D, offset: Vector3) -> void:
+	var flash := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.005
+	cone.bottom_radius = 0.045
+	cone.height = 0.10
+	cone.radial_segments = 6
+	flash.mesh = cone
+	var fmat := StandardMaterial3D.new()
+	fmat.albedo_color = Color(1.0, 0.96, 0.88)
+	fmat.emission_enabled = true
+	fmat.emission = Color(1.0, 0.96, 0.88)
+	fmat.emission_energy_multiplier = 5.0
+	flash.material_override = fmat
+	parent_node.add_child(flash)
+	flash.position = offset
+	flash.rotation = Vector3(deg_to_rad(-90), randf() * TAU, 0)
+	
+	var tree = get_tree()
+	if tree:
+		await tree.process_frame
+		await tree.process_frame
+	if is_instance_valid(flash):
+		flash.queue_free()
+
+func _eject_shell_casing(pos: Vector3, weapon_basis: Basis) -> void:
+	var world = get_parent()
+	if not world:
+		return
+	var casing := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.008, 0.003, 0.003) # 8x3x3mm
+	casing.mesh = bm
+	var cmat := StandardMaterial3D.new()
+	cmat.albedo_color = Color(0.85, 0.72, 0.28) # Polished brass
+	cmat.metallic = 0.85
+	cmat.roughness = 0.3
+	cmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	casing.material_override = cmat
+	world.add_child(casing)
+	casing.global_position = pos
+	
+	var up = weapon_basis.y
+	var right = weapon_basis.x
+	var vel = (up * randf_range(1.6, 2.3)) + (right * randf_range(1.8, 2.7))
+	
+	var tween = casing.create_tween()
+	var end_pos = pos + vel * 0.45 + Vector3(0, -0.3, 0)
+	tween.tween_property(casing, "global_position", end_pos, 0.45)
+	tween.parallel().tween_property(casing, "rotation", Vector3(randf() * 12.0, randf() * 12.0, randf() * 12.0), 0.45)
+	tween.tween_property(cmat, "albedo_color:a", 0.0, 1.5).set_delay(0.5)
+	tween.tween_callback(casing.queue_free)
+
+func _spawn_bullet_trail(from_pos: Vector3, to_pos: Vector3) -> void:
+	if from_pos.distance_to(to_pos) < 30.0:
+		return
+	var world = get_parent()
+	if not world:
+		return
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	im.surface_set_color(Color(1.0, 1.0, 0.8, 0.9))
+	im.surface_add_vertex(from_pos)
+	im.surface_set_color(Color(1.0, 1.0, 0.8, 0.0))
+	im.surface_add_vertex(to_pos)
+	im.surface_end()
+	
+	var trail := MeshInstance3D.new()
+	trail.mesh = im
+	var tmat := StandardMaterial3D.new()
+	tmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	tmat.vertex_color_use_as_albedo = true
+	tmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	trail.material_override = tmat
+	world.add_child(trail)
+	
+	var tween = trail.create_tween()
+	tween.tween_property(tmat, "albedo_color:a", 0.0, 0.08)
+	tween.tween_callback(trail.queue_free)
 
 func _physics_process(delta: float) -> void:
+	if is_photo_mode:
+		velocity = Vector3.ZERO
+		return
+
 	if _recoil_kick > 0.0:
 		_recoil_kick = move_toward(_recoil_kick, 0.0, delta * 2.2)
 		if roper_shotgun_model and roper_shotgun_model.visible:
@@ -448,15 +621,7 @@ func _physics_process(delta: float) -> void:
 			rifle_model.rotation.x = -_recoil_kick * 1.2
 			rifle_model.position.z = -0.42 + _recoil_kick * 0.28
 
-	var target_fov = default_fov
-	if is_aiming_optics:
-		if current_slot == WeaponSlot.BINOCULARS:
-			target_fov = binocular_fov
-		elif current_slot == WeaponSlot.RIFLE:
-			target_fov = scope_fov
-		elif current_slot == WeaponSlot.SHOTGUN:
-			target_fov = 55.0
-	camera.fov = lerp(camera.fov, target_fov, delta * 10.0)
+	_apply_camera_shake(delta)
 
 	if is_in_kayak:
 		velocity = Vector3.ZERO
@@ -473,6 +638,31 @@ func _physics_process(delta: float) -> void:
 	input_dir = input_dir.normalized()
 
 	var is_sprinting = (Input.is_action_pressed("sprint") or Input.is_physical_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_SHIFT)) and current_stance == Stance.STAND and not is_aiming_optics
+
+	if is_sprinting and input_dir != Vector2.ZERO:
+		_sprint_fov_factor = move_toward(_sprint_fov_factor, 1.0, delta / 0.3)
+		_recent_sprint_timer = min(4.0, _recent_sprint_timer + delta * 2.0)
+	else:
+		_sprint_fov_factor = move_toward(_sprint_fov_factor, 0.0, delta / 0.5)
+		_recent_sprint_timer = max(0.0, _recent_sprint_timer - delta * 0.5)
+
+	# (Breathing audio disabled as requested)
+	_breath_cycle_timer = 0.0
+
+	var target_fov = default_fov
+	if is_aiming_optics:
+		if current_slot == WeaponSlot.BINOCULARS:
+			target_fov = binocular_fov
+		elif current_slot == WeaponSlot.RIFLE:
+			target_fov = scope_fov
+		elif current_slot == WeaponSlot.SHOTGUN:
+			target_fov = 55.0
+	else:
+		# Smoothstep FOV sprint kick from 75° -> 78°
+		var fov_kick = smoothstep(0.0, 1.0, _sprint_fov_factor) * 3.0
+		target_fov += fov_kick
+
+	camera.fov = lerp(camera.fov, target_fov, delta * 10.0)
 
 	var current_speed = walk_speed
 	match current_stance:
@@ -491,8 +681,46 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0, current_speed)
 		velocity.z = move_toward(velocity.z, 0, current_speed)
 
+	# Cap extreme physics impulses from depenetration or geometry
+	if velocity.length() > 30.0:
+		velocity = velocity.normalized() * 10.0
+
 	move_and_slide()
-	_handle_footstep_audio(delta, get_current_speed())
+
+	# Absolute Ground Clamping: Hunter CAN NEVER fall through slopes or terrain!
+	var world = get_parent()
+	if world and world.terrain:
+		var half := Terrain.SIZE * 0.48
+		global_position.x = clamp(global_position.x, -half, half)
+		global_position.z = clamp(global_position.z, -half, half)
+		var floor_y: float = world.terrain.height_at(global_position.x, global_position.z)
+		var min_h: float = 0.90
+		if current_stance == Stance.CROUCH:
+			min_h = 0.58
+		elif current_stance == Stance.PRONE:
+			min_h = 0.28
+		if global_position.y < floor_y + min_h:
+			global_position.y = floor_y + min_h
+			velocity.y = max(0.0, velocity.y)
+
+	# Head stance ease and Head-bob
+	head.position.y = lerp(head.position.y, _head_target_y, delta * 14.0)
+	var move_spd = get_current_speed()
+	if is_on_floor() and move_spd > 0.4 and not is_in_kayak:
+		var spd_ratio = clamp((move_spd - walk_speed) / max(0.1, sprint_speed - walk_speed), 0.0, 1.0)
+		var bob_hz = lerp(1.2, 2.4, spd_ratio) * TAU
+		var bob_amp = lerp(0.03, 0.06, spd_ratio)
+		_bob_phase += delta * bob_hz
+		var bob_y = sin(_bob_phase) * bob_amp
+		camera.position.y = bob_y - _crouch_dip + _shake_pos.y
+	else:
+		camera.position.y = move_toward(camera.position.y, -_crouch_dip + _shake_pos.y, delta * 3.0)
+
+	camera.position.x = _shake_pos.x
+	camera.position.z = _shake_pos.z
+	camera.rotation.y = _shake_rot_y
+
+	_handle_footstep_audio(delta, move_spd)
 	_update_huntermate_tracking()
 
 func _handle_footstep_audio(delta: float, speed: float) -> void:
@@ -501,17 +729,26 @@ func _handle_footstep_audio(delta: float, speed: float) -> void:
 	_step_timer -= delta * (speed * 1.5)
 	if _step_timer <= 0.0:
 		_step_timer = 1.0
-		# Detect surface under hunter
+		var stance_mult := 1.0
+		match current_stance:
+			Stance.PRONE: stance_mult = 0.3
+			Stance.CROUCH: stance_mult = 0.6
+			Stance.STAND: stance_mult = 1.4 if speed > walk_speed + 0.5 else 1.0
+			
+		var surf_type = 2 # TURF (default)
 		if global_position.y <= Terrain.WATER_LEVEL + 0.3:
-			_footstep_audio.stream = _foot_water_sound
-			_footstep_audio.volume_db = -16.0
-		elif global_position.y > 4.0: # High stand or wooden dock
-			_footstep_audio.stream = _foot_wood_sound
-			_footstep_audio.volume_db = -18.0
-		else:
-			_footstep_audio.stream = _foot_turf_sound
-			_footstep_audio.volume_db = -22.0
+			surf_type = 3 # WATER
+		elif global_position.y > 4.0:
+			surf_type = 4 # WOOD
+		elif randf() < 0.2:
+			surf_type = 0 # DRY_LEAVES
+			
+		_footstep_audio.stream = AudioSynth.footstep_surface(surf_type, stance_mult)
 		_footstep_audio.play()
+		
+		var eb = get_node_or_null("/root/EventBus")
+		if eb and eb.has_signal("player_stepped"):
+			eb.player_stepped.emit(surf_type, current_stance, global_position)
 
 func _update_huntermate_tracking() -> void:
 	current_clue = ""
@@ -577,7 +814,15 @@ func _adjust_stance_height() -> void:
 		target_y = 1.0
 	elif current_stance == Stance.PRONE:
 		target_y = 0.35
-	head.position.y = target_y
+	_head_target_y = target_y
+	
+	if _fabric_audio:
+		_fabric_audio.stream = AudioSynth.fabric_shift()
+		_fabric_audio.play()
+		
+	var tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "_crouch_dip", 0.08, 0.06)
+	tween.tween_property(self, "_crouch_dip", 0.0, 0.09)
 
 func _try_interact() -> void:
 	var space = get_world_3d().direct_space_state

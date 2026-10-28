@@ -21,14 +21,16 @@ theme_override_constants/margin_bottom = 25
 layout_mode = 2
 size_flags_horizontal = 8
 size_flags_vertical = 0
-mouse_filter = 2
+mouse_filter = 1
 
 [node name="MenuButton" type="Button" parent="Margin/TopRight"]
 layout_mode = 2
+mouse_filter = 0
 text = "⚙️ MENU (ESC)"
 
 [node name="FullscreenButton" type="Button" parent="Margin/TopRight"]
 layout_mode = 2
+mouse_filter = 0
 text = "⛶ FULLSCREEN"
 
 [node name="WindLabel" type="Label" parent="Margin/TopRight"]

@@ -107,5 +107,19 @@ godot --headless --path . --export-pack "Web" "dist/web/SportsmansQuest.pck"
 
 ---
 
+## 📜 Changelog
+
+### v1.2 — Halloween Production Polish & Web Optimization
+- **Web Rendering Optimization:** Unified procedural MultiMesh vegetation system down from ~450 draw calls to 13 draw calls; reduced tree colliders to 45 solid trunks near paths for butter-smooth 60+ FPS in all web browsers.
+- **Physics & Ground Safety Clamping:** Hardened character ground-height clamping, boundary enforcement within the 600m reserve, and velocity limiting to eliminate falling through terrain or map boundaries.
+- **Articulated 3D Trophy Photo Rig:** Articulated two-segment knee and elbow joints for realistic photo poses (Ground Lounge, Ground Kneel, Hero Stand, Thumbs-Up, Gun On Shoulder) with proper turf-aligned elevation.
+- **Dead Animal Collision Safe-Disable:** Animal collision shape is immediately disabled upon harvesting/death to eliminate physics depenetration ejection.
+- **Localized Wildlife Audio:** Fixed bird audio by strictly localizing waterfowl quacks to within 35 meters, removed aim-breathing noise, and added silent circling Halloween ravens in the sky.
+- **Vast Wildlife Population:** Expanded reserve fauna to 32 Whitetail Deer (6 herds + 8 trophy bucks), 14 roaming Red Foxes, 14 lake Mallards, and 25 glowing Jack-O'-Lanterns with flickering candle light.
+- **Halloween Cryptid Night Hunt Mode:** Deep midnight sky with blood-violet horizon, moonlight directional lighting, drifting valley fog, and relentless cryptids (Wendigo, Werewolf, Ghost Buck).
+- **Web UX Navigation:** Integrated on-screen Fullscreen and Menu buttons directly into the HTML5 canvas overlay and in-game HUD.
+
+---
+
 ## 📜 License
 Distributed under the **MIT License**. Free and open source for everyone.

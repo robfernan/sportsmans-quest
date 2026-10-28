@@ -42,6 +42,9 @@ var _last_blood_pos := Vector3.ZERO
 var _snort_player: AudioStreamPlayer3D
 var harvested := false
 var spawn_grace_timer := 8.0   # 8-second spawn grace period to prevent immediate spooking
+var fear_memory: float = 0.0
+var rumor_threat_bonus: float = 0.0
+var rumor_timer: float = 0.0
 
 const ORGAN_RANK := {"Brain": 6, "Spine": 5, "Heart": 4, "Lungs": 3, "Liver": 2, "Stomach": 1, "Flesh": 0}
 
@@ -64,6 +67,19 @@ func setup(w: Node, pos: Vector3) -> void:
 	rotation.y = randf() * TAU
 	_last_track_pos = pos
 	state_timer = randf_range(2.0, 8.0)
+	
+	# Restore persistent fear memory
+	var gs = get_node_or_null("/root/GameState")
+	if gs and "animal_fear" in gs and gs.animal_fear is Dictionary:
+		fear_memory = float(gs.animal_fear.get(species, 0.0))
+		
+	# Connect to EventBus signals
+	var eb = get_node_or_null("/root/EventBus")
+	if eb and eb.has_signal("gunshot_fired"):
+		eb.gunshot_fired.connect(_on_eventbus_gunshot)
+
+func _on_eventbus_gunshot(pos: Vector3, _dir: Vector3, _is_heavy: bool) -> void:
+	on_gunshot(pos)
 
 # ---- overridables ---------------------------------------------------------
 func _setup_species() -> void: pass
@@ -77,6 +93,16 @@ func _animate(_delta: float) -> void: pass
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD or world == null:
 		return
+		
+	# Fear memory decays at 0.01/s
+	fear_memory = max(0.0, fear_memory - delta * 0.01)
+	
+	# Rumor propagation timer decay
+	if rumor_timer > 0.0:
+		rumor_timer -= delta
+		if rumor_timer <= 0.0:
+			rumor_threat_bonus = 0.0
+			
 	var hunter: Node3D = world.hunter
 	var far := global_position.distance_to(hunter.global_position) > 300.0
 	model.visible = not far
@@ -106,11 +132,17 @@ func _sense(dt: float) -> void:
 	if dist > 400.0:
 		awareness = max(awareness - dt * 0.2, 0.0)
 		return
+		
+	var gs = get_node_or_null("/root/GameState")
+	var fog_d: float = gs.fog_density if (gs and "fog_density" in gs) else 0.0
+	var eff_sight: float = sight_range * (1.0 - fog_d * 0.6)
+	
 	var scent: float = world.wind.calculate_scent_exposure(hpos, global_position, scent_range) * hunter.scent_multiplier()
-	var noise_r: float = hunter.get_noise_radius() * hearing_mult
+	var raw_noise_r: float = hunter.get_noise_radius() * hearing_mult
+	var noise_r: float = raw_noise_r / (1.0 + fog_d * dist * 0.02)
 	var sound: float = clamp(1.0 - dist / noise_r, 0.0, 1.0) if noise_r > 0.1 else 0.0
 	var vis := 0.0
-	if dist < sight_range:
+	if dist < eff_sight:
 		var fwd := -global_transform.basis.z
 		var ang := rad_to_deg(fwd.angle_to(to_h.normalized()))
 		if ang < 150.0:
@@ -118,15 +150,17 @@ func _sense(dt: float) -> void:
 			q.exclude = [get_rid(), hunter.get_rid()]
 			var hit := get_world_3d().direct_space_state.intersect_ray(q)
 			if hit.is_empty():
-				vis = (1.0 - dist / sight_range) * hunter.visibility_factor()
-	var threat := scent * 2.2 + sound * 1.6 + vis * 1.4
+				vis = (1.0 - dist / eff_sight) * hunter.visibility_factor()
+	var threat := (scent * 2.2 + sound * 1.6 + vis * 1.4) + rumor_threat_bonus
 	if threat > 0.05:
 		awareness += threat * dt
 	else:
 		awareness = max(awareness - dt * 0.08, 0.0)
+		
+	var wary_thresh: float = 0.35 * (1.0 - fear_memory * 0.15)
 	if awareness > 1.0:
 		_start_flee(hpos, true)
-	elif awareness > 0.35 and state != State.ALERT:
+	elif awareness > wary_thresh and state != State.ALERT:
 		state = State.ALERT
 		state_timer = randf_range(4.0, 8.0)
 		target = hpos
@@ -223,6 +257,10 @@ func _face(p: Vector3, weight: float) -> void:
 	var target_yaw := atan2(-d.x, -d.z)
 	rotation.y = lerp_angle(rotation.y, target_yaw, clamp(weight, 0.0, 1.0))
 
+func receive_rumor(bonus: float, duration: float) -> void:
+	rumor_threat_bonus = bonus
+	rumor_timer = duration
+
 func _start_flee(from_pos: Vector3, alert_herd: bool) -> void:
 	if state == State.DEAD:
 		return
@@ -233,12 +271,26 @@ func _start_flee(from_pos: Vector3, alert_herd: bool) -> void:
 	flee_dir.y = 0.0
 	flee_dir = flee_dir.normalized().rotated(Vector3.UP, randf_range(-0.4, 0.4))
 	awareness = 1.2
+	
+	# Increment fear memory and persist in GameState
+	fear_memory = min(1.0, fear_memory + 0.2)
+	var gs = get_node_or_null("/root/GameState")
+	if gs and "animal_fear" in gs and gs.animal_fear is Dictionary:
+		gs.animal_fear[species] = fear_memory
+		
+	var eb = get_node_or_null("/root/EventBus")
+	if eb and eb.has_signal("animal_spooked"):
+		eb.animal_spooked.emit(get_instance_id(), global_position, awareness)
+		
 	if randf() < 0.7:
 		_snort_player.play()
 	if alert_herd:
 		for m in herd:
-			if is_instance_valid(m) and m != self and m.state != State.DEAD and m.state != State.FLEE:
-				m.call_deferred("_start_flee", from_pos, false)
+			if is_instance_valid(m) and m != self and m.state != State.DEAD:
+				if global_position.distance_to(m.global_position) <= 80.0 and m.has_method("receive_rumor"):
+					m.receive_rumor(0.15, 90.0)
+				if m.state != State.FLEE:
+					m.call_deferred("_start_flee", from_pos, false)
 
 func on_gunshot(pos: Vector3) -> void:
 	if state == State.DEAD:
@@ -283,10 +335,106 @@ func take_hit(origin: Vector3, dir: Vector3, weapon: String, is_pellet: bool) ->
 	shot_distance = global_position.distance_to(world.hunter.global_position)
 	weapon_used = weapon
 	_apply_wound(organ)
+	_spawn_blood_fx(global_position + Vector3(0, 0.6, 0), -dir, organ)
 	if state != State.DEAD:
 		state = State.WOUNDED
 		_start_flee(origin, true)
 	return organ
+
+func _spawn_blood_fx(pos: Vector3, normal: Vector3, organ: String) -> void:
+	if not world:
+		return
+	var col := Color(0.85, 0.05, 0.05)
+	var vel_mult := 1.0
+	var grav_mult := 1.0
+	var up_bias := 0.0
+	
+	match organ:
+		"Brain", "Spine":
+			col = Color(1.0, 0.2, 0.2) # Bright red
+			vel_mult = 1.6
+			grav_mult = 0.8
+		"Heart":
+			col = Color(0.55, 0.0, 0.0) # Dark crimson
+			vel_mult = 1.1
+			grav_mult = 1.4
+		"Lungs":
+			col = Color(1.0, 0.7, 0.75) # Frothy pink
+			vel_mult = 1.0
+			up_bias = 0.4
+		"Liver":
+			col = Color(0.36, 0.1, 0.1) # Deep maroon
+			vel_mult = 0.7
+			grav_mult = 1.6
+			
+	var count := randi_range(8, 15)
+	for i in count:
+		var s := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = randf_range(0.02, 0.045)
+		sm.height = sm.radius * 2.0
+		s.mesh = sm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = col
+		mat.roughness = 0.4
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		s.material_override = mat
+		world.add_child(s)
+		s.global_position = pos + Vector3(randf_range(-0.1, 0.1), randf_range(-0.1, 0.1), randf_range(-0.1, 0.1))
+		
+		var out_dir = (normal + Vector3(randf_range(-0.6, 0.6), randf_range(-0.2, 0.6) + up_bias, randf_range(-0.6, 0.6))).normalized()
+		var p_vel = out_dir * randf_range(2.0, 5.0) * vel_mult
+		
+		var tween := s.create_tween()
+		tween.tween_property(s, "scale", Vector3.ZERO, 1.2)
+		tween.parallel().tween_property(mat, "albedo_color:a", 0.0, 1.2)
+		var end_pos = s.global_position + p_vel * 0.4 + Vector3(0, -0.6 * grav_mult, 0)
+		tween.parallel().tween_property(s, "global_position", end_pos, 1.2)
+		tween.tween_callback(s.queue_free)
+		
+	# Ground-aligned Blood Decal
+	if world.terrain:
+		var p_ground := pos
+		p_ground.y = world.terrain.height_at(pos.x, pos.z) + 0.03
+		var gn: Vector3 = world.terrain.normal_at(pos.x, pos.z)
+		
+		var decal := MeshInstance3D.new()
+		var pm := PlaneMesh.new()
+		pm.size = Vector2(0.5, 0.5)
+		pm.orientation = PlaneMesh.FACE_Y
+		decal.mesh = pm
+		
+		var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		var center := Vector2(32, 32)
+		for px in 64:
+			for py in 64:
+				var dist_c := center.distance_to(Vector2(px, py))
+				var angle := atan2(py - 32, px - 32)
+				var blob_rad := 14.0 + sin(angle * 5.0) * 6.0 + cos(angle * 7.0) * 4.0
+				if dist_c < blob_rad:
+					var a: float = clamp((1.0 - (dist_c / blob_rad)) * 1.5, 0.0, randf_range(0.7, 0.9))
+					img.set_pixel(px, py, Color(col.r, col.g, col.b, a))
+				elif randf() < 0.02 and dist_c < 28.0:
+					img.set_pixel(px, py, Color(col.r, col.g, col.b, randf_range(0.5, 0.8)))
+					
+		var tex := ImageTexture.create_from_image(img)
+		var dmat := StandardMaterial3D.new()
+		dmat.albedo_texture = tex
+		dmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		dmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		decal.material_override = dmat
+		
+		world.add_child(decal)
+		decal.global_position = p_ground
+		var up := Vector3.UP
+		var axis := up.cross(gn)
+		if axis.length() > 0.001:
+			decal.basis = Basis(axis.normalized(), up.angle_to(gn)) * decal.basis
+			
+		var dtween := decal.create_tween()
+		dtween.tween_property(dmat, "albedo_color:a", 0.0, 300.0)
+		dtween.tween_callback(decal.queue_free)
 
 func _ray_sphere(o: Vector3, d: Vector3, c: Vector3, r: float) -> bool:
 	var oc := o - c
@@ -319,11 +467,23 @@ func _die() -> void:
 	speed = 0.0
 	bleed_time = -1.0
 	model.visible = true
+	var col = get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col:
+		col.disabled = true
+	collision_layer = 0
+	collision_mask = 0
 	_on_death()
 
 func _on_death() -> void:
+	if world and world.terrain:
+		var n: Vector3 = world.terrain.normal_at(global_position.x, global_position.z)
+		global_position.y = world.terrain.height_at(global_position.x, global_position.z) + 0.15
+		var up := Vector3.UP
+		var axis := up.cross(n)
+		if axis.length() > 0.001:
+			basis = Basis(axis.normalized(), up.angle_to(n)) * basis
 	model.rotation.z = deg_to_rad(85.0)
-	model.position.y = 0.35
+	model.position.y = 0.2
 
 func _leave_sign() -> void:
 	if world.tracks == null:

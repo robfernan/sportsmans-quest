@@ -32,28 +32,28 @@ void vertex() {
 void fragment() {
 	vec2 p = wpos.xz;
 	
-	// Single-step procedural noise (blazing fast WebGL fragment shader)
+	// Single-step procedural noise
 	float n1 = noise(p * 0.15);
 	float n2 = noise(p * 0.9);
 	float detail = (n1 * 0.65 + n2 * 0.35);
 	
-	// Rich earthy autumn palette
-	vec3 col_grass = mix(vec3(0.18, 0.28, 0.12), vec3(0.26, 0.35, 0.14), detail);
-	vec3 col_needles = mix(vec3(0.24, 0.18, 0.10), vec3(0.19, 0.22, 0.11), detail);
-	vec3 col_rock = mix(vec3(0.26, 0.25, 0.24), vec3(0.33, 0.31, 0.28), detail);
-	vec3 col_mud = mix(vec3(0.12, 0.09, 0.07), vec3(0.18, 0.14, 0.10), detail);
+	// Halloween Late Autumn / Early Winter Palette (Frosted ground, pale moss, and snow glades)
+	vec3 col_snow = vec3(0.92, 0.94, 0.98); // Crisp white snow dusting
+	vec3 col_frost_turf = mix(vec3(0.35, 0.40, 0.32), vec3(0.48, 0.52, 0.44), detail); // Frosted autumn turf
+	vec3 col_frozen_needles = mix(vec3(0.26, 0.22, 0.18), vec3(0.32, 0.28, 0.22), detail);
+	vec3 col_cold_rock = mix(vec3(0.30, 0.30, 0.34), vec3(0.42, 0.42, 0.45), detail);
+	vec3 col_shore_ice = mix(vec3(0.45, 0.55, 0.60), vec3(0.85, 0.90, 0.95), detail);
 	
 	float slope = 1.0 - clamp(wnorm.y, 0.0, 1.0);
-	vec3 col = mix(col_grass, col_needles, smoothstep(0.38, 0.62, n1));
-	col = mix(col, col_rock, smoothstep(0.25, 0.55, slope));
-	col = mix(col_mud, col, smoothstep(-0.2, 1.2, wpos.y));
+	vec3 base_col = mix(col_frost_turf, col_frozen_needles, smoothstep(0.35, 0.65, n1));
+	base_col = mix(base_col, col_cold_rock, smoothstep(0.22, 0.52, slope));
+	base_col = mix(col_shore_ice, base_col, smoothstep(-0.2, 0.8, wpos.y));
 	
-	ALBEDO = col;
-	ROUGHNESS = 0.9;
-	SPECULAR = 0.1;
-}
+	// Snow cover on flatter surfaces and high elevations
+	float snow_factor = smoothstep(0.45, 0.15, slope) * smoothstep(-5.0, 18.0, wpos.y + n2 * 4.0);
+	vec3 final_col = mix(base_col, col_snow, clamp(snow_factor * 0.75, 0.0, 0.88));
 	
-	ALBEDO = col;
-	ROUGHNESS = 0.95;
-	SPECULAR = 0.1;
+	ALBEDO = final_col;
+	ROUGHNESS = 0.85;
+	SPECULAR = 0.2;
 }

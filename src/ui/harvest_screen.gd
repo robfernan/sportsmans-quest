@@ -115,21 +115,10 @@ func _on_pose_photo_pressed() -> void:
 		pose_btn.text = pose_names[current_pose_idx]
 	
 	if hunter and is_instance_valid(hunter):
+		hunter.set_photo_mode_active(true)
 		hunter.set_third_person_visible(true)
 		hunter.set_photo_pose(pose_enums[current_pose_idx])
-		
-		# Position the hunter right next to the fallen animal/monster on the ground
-		if target_animal and is_instance_valid(target_animal):
-			var a_pos = target_animal.global_position
-			var offset_dir = target_animal.global_transform.basis.x
-			var h_pos = a_pos + (offset_dir * 1.1)
-			var world = get_tree().root.find_child("Main", true, false)
-			if world and world.terrain:
-				h_pos.y = world.terrain.height_at(h_pos.x, h_pos.z) + 0.9
-			hunter.global_position = h_pos
-			hunter.look_at(a_pos, Vector3.UP)
-			hunter.rotation.x = 0
-			hunter.rotation.z = 0
+		_position_hunter_for_photo()
 		
 		# Create or activate a world-space photo camera focused on the hunter & harvest
 		if not photo_camera:
@@ -139,12 +128,73 @@ func _on_pose_photo_pressed() -> void:
 		
 		_update_photo_camera_transform()
 
+func _position_hunter_for_photo() -> void:
+	if not hunter or not is_instance_valid(hunter):
+		return
+	if target_animal and is_instance_valid(target_animal):
+		var a_pos = target_animal.global_position
+		var world = get_tree().root.find_child("Main", true, false)
+		
+		var animal_ground_y = a_pos.y
+		if world and world.terrain:
+			animal_ground_y = world.terrain.height_at(a_pos.x, a_pos.z)
+			var n: Vector3 = world.terrain.normal_at(a_pos.x, a_pos.z)
+			var sp_name = current_record.get("species_name", "")
+			var animal_lift = 0.20
+			if "Duck" in sp_name or "Mallard" in sp_name:
+				animal_lift = 0.08
+			elif "Fox" in sp_name:
+				animal_lift = 0.16
+			elif "Deer" in sp_name or "Buck" in sp_name:
+				animal_lift = 0.30
+			target_animal.global_position.y = animal_ground_y + animal_lift
+			a_pos = target_animal.global_position
+			
+			# Align animal along terrain slope
+			var up := Vector3.UP
+			var axis := up.cross(n)
+			if axis.length() > 0.001:
+				target_animal.basis = Basis(axis.normalized(), up.angle_to(n))
+		
+		# Position hunter comfortably beside the harvest looking at the camera
+		var offset_dir = target_animal.global_transform.basis.x
+		if offset_dir.length_squared() < 0.1:
+			offset_dir = Vector3(1, 0, 0)
+		offset_dir.y = 0.0
+		offset_dir = offset_dir.normalized()
+		
+		var h_pos = a_pos + (offset_dir * 0.95)
+		var y_offset = 0.85
+		var cur_pose = pose_enums[current_pose_idx]
+		if cur_pose == HunterThirdPersonBuilder.Pose.GROUND_LOUNGE:
+			y_offset = 0.78 # Matches -0.76 anchor position so pelvis rests +0.02m on turf!
+		elif cur_pose == HunterThirdPersonBuilder.Pose.GROUND_KNEEL:
+			y_offset = 0.45 # Matches -0.42 anchor position so knee rests +0.03m on turf!
+			
+		if world and world.terrain:
+			h_pos.y = world.terrain.height_at(h_pos.x, h_pos.z) + y_offset
+		else:
+			h_pos.y = a_pos.y + y_offset
+			
+		hunter.global_position = h_pos
+		# Hunter faces front towards the photo camera with proud trophy composure
+		var photo_face_dir := -target_animal.global_transform.basis.z
+		if photo_face_dir.length_squared() < 0.1:
+			photo_face_dir = Vector3(0, 0, 1)
+		photo_face_dir.y = 0.0
+		photo_face_dir = photo_face_dir.normalized()
+		hunter.look_at(hunter.global_position + photo_face_dir, Vector3.UP)
+		hunter.rotation.x = 0
+		hunter.rotation.z = 0
+
 func _on_cycle_pose() -> void:
 	current_pose_idx = (current_pose_idx + 1) % pose_names.size()
 	if pose_btn:
 		pose_btn.text = pose_names[current_pose_idx]
 	if hunter and is_instance_valid(hunter):
 		hunter.set_photo_pose(pose_enums[current_pose_idx])
+		_position_hunter_for_photo()
+	_update_photo_camera_transform()
 	print("[Sportsman's Quest] Hunter struck pose: %s" % pose_names[current_pose_idx])
 
 func _on_cycle_cam_angle() -> void:
@@ -157,7 +207,7 @@ func _update_photo_camera_transform() -> void:
 		return
 	var center_pos = hunter.global_position + Vector3(0, 0.45, 0)
 	if target_animal and is_instance_valid(target_animal):
-		center_pos = (hunter.global_position + target_animal.global_position) * 0.5 + Vector3(0, 0.4, 0)
+		center_pos = (hunter.global_position + target_animal.global_position) * 0.5 + Vector3(0, 0.35, 0)
 
 	var fwd = -hunter.global_transform.basis.z
 	var right = hunter.global_transform.basis.x
@@ -165,17 +215,23 @@ func _update_photo_camera_transform() -> void:
 	var cam_pos = Vector3.ZERO
 	match current_cam_angle_idx:
 		0:
-			# Low Ground Front Angle (Dramatic & Hilarious trophy view)
-			cam_pos = center_pos + (fwd * 2.2) + (right * 0.4) + Vector3(0, 0.35, 0)
+			# Low Ground Front Angle
+			cam_pos = center_pos + (fwd * 2.0) + (right * 0.4) + Vector3(0, 0.35, 0)
 		1:
 			# Eye-Level Side Angle
-			cam_pos = center_pos + (right * 2.4) + Vector3(0, 0.65, 0)
+			cam_pos = center_pos + (right * 2.2) + Vector3(0, 0.55, 0)
 		2:
 			# High 3/4 Elevated Overview
-			cam_pos = center_pos + (fwd * 2.0) - (right * 1.4) + Vector3(0, 1.4, 0)
+			cam_pos = center_pos + (fwd * 1.8) - (right * 1.2) + Vector3(0, 1.2, 0)
 		3:
-			# Extreme Low Macro Angle (from grass level looking up)
-			cam_pos = center_pos + (fwd * 1.5) + Vector3(0, 0.15, 0)
+			# Low Macro Angle
+			cam_pos = center_pos + (fwd * 1.5) + Vector3(0, 0.25, 0)
+	
+	# Clamp camera above terrain surface to completely prevent underground clipping
+	var world = get_tree().root.find_child("Main", true, false)
+	if world and world.terrain:
+		var ground_y = world.terrain.height_at(cam_pos.x, cam_pos.z)
+		cam_pos.y = max(cam_pos.y, ground_y + 0.45)
 	
 	photo_camera.global_position = cam_pos
 	photo_camera.look_at(center_pos, Vector3.UP)
@@ -202,6 +258,10 @@ func _on_snap_photo() -> void:
 func _on_exit_photo_mode() -> void:
 	if hunter and is_instance_valid(hunter):
 		hunter.set_third_person_visible(false)
+		hunter.set_photo_mode_active(false)
+		var world = get_tree().root.find_child("Main", true, false)
+		if world and world.terrain:
+			hunter.global_position.y = world.terrain.height_at(hunter.global_position.x, hunter.global_position.z) + 0.90
 		if hunter.camera:
 			hunter.camera.current = true
 			

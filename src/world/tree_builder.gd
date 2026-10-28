@@ -14,8 +14,9 @@ static func _materials() -> void:
 	bark.roughness = 0.95
 	_bark_mat = bark
 	
-	var leaf := ShaderMaterial.new()
-	leaf.shader = load("res://src/world/foliage.gdshader")
+	var leaf := StandardMaterial3D.new()
+	leaf.albedo_color = Color(0.16, 0.28, 0.18) # Conifer green dusted with frost
+	leaf.roughness = 0.9
 	_leaf_mat = leaf
 
 ## kind: 0 = tall fir, 1 = wide spruce, 2 = sapling
