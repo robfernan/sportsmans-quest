@@ -32,6 +32,7 @@ enum ShotgunAmmo { BIRDSHOT, BUCKSHOT, SLUG }
 @export var default_fov: float = 75.0
 @export var scope_fov: float = 22.0
 @export var binocular_fov: float = 10.0
+@export var enable_aim_breathing: bool = true
 
 var current_stance: Stance = Stance.STAND
 var current_slot: WeaponSlot = WeaponSlot.RIFLE
@@ -65,6 +66,8 @@ var _footstep_audio: AudioStreamPlayer
 var _fabric_audio: AudioStreamPlayer
 var _breathing_audio: AudioStreamPlayer
 var _reverb_audio: AudioStreamPlayer
+var _hurt_thud: AudioStreamPlayer
+var _hurt_grunt: AudioStreamPlayer
 var _step_timer: float = 0.0
 var _kayak_travel: float = 0.0
 var _last_kayak_pos: Vector3 = Vector3.ZERO
@@ -148,18 +151,24 @@ func _init_audio() -> void:
 	_footstep_audio = AudioStreamPlayer.new()
 	_fabric_audio = AudioStreamPlayer.new()
 	_breathing_audio = AudioStreamPlayer.new()
+	_hurt_thud = AudioStreamPlayer.new()
+	_hurt_grunt = AudioStreamPlayer.new()
 	_gun_audio.bus = AudioDirector.BUS_SFX
 	_call_audio.bus = AudioDirector.BUS_SFX
 	_click_audio.bus = AudioDirector.BUS_UI
 	_footstep_audio.bus = AudioDirector.BUS_SFX
 	_fabric_audio.bus = AudioDirector.BUS_SFX
 	_breathing_audio.bus = AudioDirector.BUS_SFX
+	_hurt_thud.bus = AudioDirector.BUS_SFX
+	_hurt_grunt.bus = AudioDirector.BUS_SFX
 	_gun_audio.volume_db = -10.0
 	_call_audio.volume_db = -8.0
 	_click_audio.volume_db = -12.0
 	_footstep_audio.volume_db = -18.0
 	_fabric_audio.volume_db = -14.0
-	_breathing_audio.volume_db = -20.0
+	_breathing_audio.volume_db = -22.0
+	_hurt_thud.volume_db = -8.0
+	_hurt_grunt.volume_db = -10.0
 	_reverb_audio = AudioStreamPlayer.new()
 	_reverb_audio.bus = AudioDirector.BUS_SFX
 	_reverb_audio.volume_db = -14.0
@@ -170,6 +179,9 @@ func _init_audio() -> void:
 	add_child(_fabric_audio)
 	add_child(_breathing_audio)
 	add_child(_reverb_audio)
+	add_child(_hurt_thud)
+	add_child(_hurt_grunt)
+	_breathing_audio.stream = AudioSynth.take_hunter_breathing(false)
 
 	_rifle_sound = AudioSynth.gunshot(true)
 	_shotgun_sound = AudioSynth.gunshot(false)
@@ -213,6 +225,7 @@ func _input(event: InputEvent) -> void:
 	# Toggle Optics / Binoculars (Right Click)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		is_aiming_optics = event.pressed
+		_apply_aim_audio()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -702,7 +715,7 @@ func _physics_process(delta: float) -> void:
 		_sprint_fov_factor = move_toward(_sprint_fov_factor, 0.0, delta / 0.5)
 		_recent_sprint_timer = max(0.0, _recent_sprint_timer - delta * 0.5)
 
-	# (Breathing audio disabled as requested)
+	_update_aim_breathing()
 	_breath_cycle_timer = 0.0
 
 	var target_fov = default_fov
@@ -934,8 +947,14 @@ func take_damage(amount: float) -> void:
 		return
 	health = max(0.0, health - amount)
 	_recoil_kick = 0.35
-	_click_audio.stream = _click_sound
-	_click_audio.play()
+	if _hurt_thud:
+		_hurt_thud.stream = AudioSynth.take_hit_thud()
+		_hurt_thud.pitch_scale = AudioSynth.vary_pitch(0.94, 1.06)
+		_hurt_thud.play()
+	if _hurt_grunt:
+		_hurt_grunt.stream = AudioSynth.take_pain_grunt()
+		_hurt_grunt.pitch_scale = AudioSynth.vary_pitch(0.96, 1.05)
+		_hurt_grunt.play()
 	# Camera roll settles back in _physics_process.
 	camera.rotation.z = deg_to_rad(randf_range(-8.0, 8.0))
 	print("[HUNTER INJURED] Took %.0f damage from predator attack! HP: %.0f/%.0f" % [amount, health, MAX_HEALTH])
@@ -948,12 +967,30 @@ func take_damage(amount: float) -> void:
 		if eb and eb.has_signal("player_downed"):
 			eb.player_downed.emit()
 
+func _apply_aim_audio() -> void:
+	var world = get_parent()
+	if world and world.has_method("_update_wind_ambient"):
+		world._update_wind_ambient()
+	_update_aim_breathing()
+
+func _update_aim_breathing() -> void:
+	if _breathing_audio == null:
+		return
+	var want := enable_aim_breathing and is_aiming_optics and not is_in_kayak
+	if want:
+		if not _breathing_audio.playing:
+			_breathing_audio.volume_db = -22.0
+			_breathing_audio.play()
+	elif _breathing_audio.playing:
+		_breathing_audio.stop()
+
 func _enter_kayak(kayak: KayakController) -> void:
 	is_in_kayak = true
 	active_kayak = kayak
 	_last_kayak_pos = kayak.global_position
 	_kayak_travel = 0.0
 	kayak.set_physics_process(true)
+	_update_aim_breathing()
 	print("[Vehicle] Boarded hunting kayak. Use W/S/A/D to paddle. Press E to exit.")
 
 func _exit_kayak() -> void:

@@ -27,6 +27,7 @@ var is_in_photo_mode: bool = false
 var original_camera_transform: Transform3D
 var hunter: HunterController = null
 var photo_camera: Camera3D = null
+var _sting_player: AudioStreamPlayer
 
 # Poses: 0: Ground Kneel, 1: Ground Lounge, 2: Victory Thumbs-up, 3: Gun On Shoulder, 4: Stand Hero
 var pose_names: Array[String] = [
@@ -110,8 +111,19 @@ func show_harvest(record: Dictionary, animal: Node3D = null) -> void:
 	panel.visible = true
 	visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_play_trophy_sting()
 	if photo_btn:
 		photo_btn.grab_focus()
+
+func _play_trophy_sting() -> void:
+	if _sting_player == null:
+		_sting_player = AudioStreamPlayer.new()
+		_sting_player.bus = AudioDirector.BUS_UI
+		_sting_player.volume_db = -4.0
+		add_child(_sting_player)
+	_sting_player.stream = AudioSynth.take_trophy_sting()
+	_sting_player.pitch_scale = AudioSynth.vary_pitch(0.98, 1.02)
+	_sting_player.play()
 
 func _on_pose_photo_pressed() -> void:
 	# theHunter Classic Trophy Photo Pose Mode:

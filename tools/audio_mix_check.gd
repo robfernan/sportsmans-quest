@@ -73,7 +73,7 @@ func _initialize() -> void:
 		fails.append("reverb unique %s" % tails.size())
 
 	var screech := {}
-	for i in 6:
+	for i in 24:
 		screech[AudioSynth.take_wendigo_screech().get_instance_id()] = true
 	print("SCREECH_UNIQUE ", screech.size())
 	if screech.size() != 2:
@@ -89,6 +89,23 @@ func _initialize() -> void:
 	AudioSynth.warm_oneshot_cache()
 	if not ids.has(AudioSynth.take_footstep(2).get_instance_id()):
 		fails.append("rewarm rebuilt turf")
+
+	_expect_pool(fails, "bird", 4, func() -> AudioStreamWAV: return AudioSynth.take_bird_chirp())
+	_expect_pool(fails, "paddle", 3, func() -> AudioStreamWAV: return AudioSynth.take_paddle())
+	_expect_pool(fails, "thud", 3, func() -> AudioStreamWAV: return AudioSynth.take_hit_thud())
+	_expect_pool(fails, "hoof", 3, func() -> AudioStreamWAV: return AudioSynth.take_flee_hooves())
+	_expect_pool(fails, "crash", 3, func() -> AudioStreamWAV: return AudioSynth.take_flee_crash())
+	_expect_pool(fails, "ghost", 1, func() -> AudioStreamWAV: return AudioSynth.take_ghost_chime())
+	_expect_pool(fails, "sting", 1, func() -> AudioStreamWAV: return AudioSynth.take_trophy_sting())
+	_expect_pool(fails, "breath", 1, func() -> AudioStreamWAV: return AudioSynth.take_hunter_breathing(false))
+	var room_a := AudioSynth.take_room_tone().get_instance_id()
+	var room_b := AudioSynth.take_room_tone().get_instance_id()
+	var fire_a := AudioSynth.take_fire_crackle().get_instance_id()
+	var fire_b := AudioSynth.take_fire_crackle().get_instance_id()
+	if room_a != room_b:
+		fails.append("room tone rebuilt")
+	if fire_a != fire_b:
+		fails.append("fire crackle rebuilt")
 
 	_fails = fails
 	process_frame.connect(_finish_after_autoload_ready, CONNECT_ONE_SHOT)
@@ -113,6 +130,14 @@ func _finish_after_autoload_ready() -> void:
 		for item in fails:
 			print(" - ", item)
 		quit(1)
+
+func _expect_pool(fails: Array[String], label: String, expect: int, builder: Callable) -> void:
+	var seen := {}
+	for i in maxi(expect * 12, 24):
+		seen[builder.call().get_instance_id()] = true
+	print(label.to_upper(), "_UNIQUE ", seen.size())
+	if seen.size() != expect:
+		fails.append("%s unique %s" % [label, seen.size()])
 
 func _check_focus_gate(director: Node, fails: Array[String]) -> void:
 	var key := InputEventKey.new()

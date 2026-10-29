@@ -7,15 +7,35 @@ extends Node3D
 
 @onready var exit_button: Button = $UI/ExitButton
 @onready var lodge_info_label: Label = $UI/InfoLabel
+@export var enable_fire_crackle: bool = true
 
 func _ready() -> void:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_build_cabin_geometry()
 	_populate_harvested_trophies()
+	_start_lodge_audio()
 	
 	if exit_button:
 		exit_button.pressed.connect(_on_exit_pressed)
+
+func _start_lodge_audio() -> void:
+	var room := AudioStreamPlayer.new()
+	room.bus = AudioDirector.BUS_AMBIENCE
+	room.stream = AudioSynth.take_room_tone()
+	room.volume_db = -18.0
+	room.name = "LodgeRoomTone"
+	add_child(room)
+	room.play()
+	if not enable_fire_crackle:
+		return
+	var fire := AudioStreamPlayer.new()
+	fire.bus = AudioDirector.BUS_AMBIENCE
+	fire.stream = AudioSynth.take_fire_crackle()
+	fire.volume_db = -14.0
+	fire.name = "LodgeFire"
+	add_child(fire)
+	fire.play()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:

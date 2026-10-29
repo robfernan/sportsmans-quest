@@ -3,10 +3,11 @@ extends RefCounted
 
 ## Procedurally synthesized sound effects for Sportsman's Quest.
 ## 100% procedural PCM (no external samples).
-## Footsteps, fabric, rifle tails, and the wendigo screech are pooled:
-## take_*() reuses a few takes, and playback varies pitch instead of
-## rebuilding PCM on every step. Synthesis uses a private RNG so pools
-## do not advance the global random stream used by wildlife.
+## Footsteps, fabric, rifle tails, cryptid calls, birds, paddle strokes,
+## and the short cozy/horror stings are pooled: take_*() reuses a few
+## takes, and playback varies pitch instead of rebuilding PCM every
+## step. Synthesis uses a private RNG so pools do not advance the
+## global random stream used by wildlife.
 
 const RATE := 22050
 
@@ -310,6 +311,110 @@ static func click() -> AudioStreamWAV:
 		s[i] = (_rand() * 2.0 - 1.0) * exp(-t * 80.0) * 0.25
 	return _to_wav(s)
 
+## Low body impact. Distinct from the UI click.
+static func hit_thud() -> AudioStreamWAV:
+	var dur := 0.18
+	var n := int(RATE * dur)
+	var s := PackedFloat32Array(); s.resize(n)
+	var phase := 0.0
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		phase += TAU * lerp(96.0, 42.0, t / dur) / RATE
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.05)
+		var env := exp(-t * 18.0)
+		s[i] = (sin(phase) * 0.78 + lp * 0.22) * env * 0.5
+	return _to_wav(s)
+
+## Short voiced pain, not the deer-call grunt.
+static func pain_grunt() -> AudioStreamWAV:
+	var dur := 0.32
+	var n := int(RATE * dur)
+	var s := PackedFloat32Array(); s.resize(n)
+	var phase := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		phase += TAU * lerp(168.0, 92.0, t / dur) / RATE
+		var env := sin(clamp(t / dur, 0.0, 1.0) * PI)
+		var tone := sin(phase) * 0.6 + sin(phase * 2.05) * 0.18
+		s[i] = (tone + (_rand() - 0.5) * 0.22) * env * 0.42
+	return _to_wav(s)
+
+## Soft major trophy chime for the harvest card.
+static func trophy_sting() -> AudioStreamWAV:
+	var n := int(RATE * 0.85)
+	var s := PackedFloat32Array(); s.resize(n)
+	var p1 := 0.0
+	var p2 := 0.0
+	var p3 := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		p1 += TAU * 523.25 / RATE
+		p2 += TAU * 659.25 / RATE
+		p3 += TAU * 783.99 / RATE
+		var env := exp(-t * 3.4)
+		s[i] = (sin(p1) * 0.5 + sin(p2) * 0.32 + sin(p3) * 0.2) * env * 0.22
+	return _to_wav(s)
+
+## Four quick hoof hits when big game bolts.
+static func flee_hooves() -> AudioStreamWAV:
+	var dur := 0.42
+	var n := int(RATE * dur)
+	var s := PackedFloat32Array(); s.resize(n)
+	var phase := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var step := fmod(t, 0.105)
+		phase += TAU * lerp(150.0, 68.0, step / 0.105) / RATE
+		var env := exp(-step * 34.0) if step < 0.09 else 0.0
+		var grit := (_rand() * 2.0 - 1.0) * env * 0.28
+		s[i] = (sin(phase) * 0.72 * env + grit) * 0.48
+	return _to_wav(s)
+
+## Brush crash for foxes and cryptids.
+static func flee_crash() -> AudioStreamWAV:
+	var dur := 0.3
+	var n := int(RATE * dur)
+	var s := PackedFloat32Array(); s.resize(n)
+	var lp := 0.0
+	var phase := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.3)
+		phase += TAU * lerp(190.0, 55.0, t / dur) / RATE
+		var env := exp(-t * 11.0)
+		s[i] = (lp * 0.62 + sin(phase) * 0.38) * env * 0.46
+	return _to_wav(s)
+
+## Quiet cabin bed. Looped, low-passed.
+static func room_tone() -> AudioStreamWAV:
+	var n := RATE * 4
+	var s := PackedFloat32Array(); s.resize(n)
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / n
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.008)
+		var fade := minf(1.0, minf(t, 1.0 - t) * 28.0)
+		s[i] = lp * fade * 0.2
+	return _to_wav(s, true)
+
+## Hearth pops for the trophy lodge. Looped.
+static func fire_crackle() -> AudioStreamWAV:
+	var n := RATE * 3
+	var s := PackedFloat32Array(); s.resize(n)
+	var hiss := 0.0
+	var pop_lp := 0.0
+	for i in n:
+		var t := float(i) / n
+		hiss = lerp(hiss, _rand() * 2.0 - 1.0, 0.012)
+		var pop := 0.0
+		if _rand() < 0.011:
+			pop = _rand() * 2.0 - 1.0
+		pop_lp = lerp(pop_lp, pop, 0.42)
+		var fade := minf(1.0, minf(t, 1.0 - t) * 22.0)
+		s[i] = (hiss * 0.18 + pop_lp * 0.82) * fade * 0.34
+	return _to_wav(s, true)
+
 
 ## Hot path. Builds each surface a few times, then rotates those buffers.
 static func warm_oneshot_cache() -> void:
@@ -319,6 +424,15 @@ static func warm_oneshot_cache() -> void:
 	for dist in _REVERB_DISTANCES:
 		_ensure_reverb_pool(dist)
 	_ensure_screech_pool()
+	_ensure_named("bird", 4)
+	_ensure_named("paddle", 3)
+	_ensure_named("ghost", 1)
+	_ensure_named("thud", 3)
+	_ensure_named("sting", 1)
+	_ensure_named("grunt", 2)
+	_ensure_named("hoof", 3)
+	_ensure_named("crash", 3)
+	_ensure_named("breath", 1)
 
 static func take_footstep(surface: int) -> AudioStreamWAV:
 	return _pick(_ensure_foot_pool(surface))
@@ -335,6 +449,79 @@ static func take_wendigo_screech() -> AudioStreamWAV:
 
 static func vary_pitch(lo: float = 0.94, hi: float = 1.06) -> float:
 	return _rand_range(lo, hi)
+
+static func take_bird_chirp() -> AudioStreamWAV:
+	return _pick(_ensure_named("bird", 4))
+
+static func take_paddle() -> AudioStreamWAV:
+	return _pick(_ensure_named("paddle", 3))
+
+static func take_ghost_chime() -> AudioStreamWAV:
+	return _pick(_ensure_named("ghost", 1))
+
+static func take_hit_thud() -> AudioStreamWAV:
+	return _pick(_ensure_named("thud", 3))
+
+static func take_pain_grunt() -> AudioStreamWAV:
+	return _pick(_ensure_named("grunt", 2))
+
+static func take_trophy_sting() -> AudioStreamWAV:
+	return _pick(_ensure_named("sting", 1))
+
+static func take_flee_hooves() -> AudioStreamWAV:
+	return _pick(_ensure_named("hoof", 3))
+
+static func take_flee_crash() -> AudioStreamWAV:
+	return _pick(_ensure_named("crash", 3))
+
+static func take_hunter_breathing(heavy := false) -> AudioStreamWAV:
+	var key := "breath_heavy" if heavy else "breath"
+	return _pick(_ensure_named(key, 1))
+
+static func take_room_tone() -> AudioStreamWAV:
+	return _pick(_ensure_named("room", 1))
+
+static func take_fire_crackle() -> AudioStreamWAV:
+	return _pick(_ensure_named("fire", 1))
+
+static var _named_pools: Dictionary = {}
+
+static func _ensure_named(key: String, count: int) -> Array:
+	if _named_pools.has(key):
+		return _named_pools[key]
+	var pool: Array = []
+	for _i in count:
+		pool.append(_build_named(key))
+	_named_pools[key] = pool
+	return pool
+
+static func _build_named(key: String) -> AudioStreamWAV:
+	match key:
+		"bird":
+			return bird_chirp()
+		"paddle":
+			return paddle()
+		"ghost":
+			return ghost_chime()
+		"thud":
+			return hit_thud()
+		"sting":
+			return trophy_sting()
+		"grunt":
+			return pain_grunt()
+		"hoof":
+			return flee_hooves()
+		"crash":
+			return flee_crash()
+		"breath":
+			return hunter_breathing(false)
+		"breath_heavy":
+			return hunter_breathing(true)
+		"room":
+			return room_tone()
+		"fire":
+			return fire_crackle()
+	return click()
 
 static func _ensure_foot_pool(surface: int) -> Array:
 	if _foot_pools.has(surface):

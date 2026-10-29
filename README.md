@@ -86,11 +86,13 @@ Spawn lists in `src/world/game_world.gd` place 32 whitetail (six herds of four, 
 
 ## Audio
 
-Cues are procedural mono PCM from `src/core/audio_synth.gd` (22050 Hz, no sample bank). `default_bus_layout.tres` is the shared Web and Desktop mix: Master at 0 dB with a limiter ceiling of −1 dBTP, Music −12 dB, Ambience −16 dB, SFX −6 dB, UI −10 dB. Wind goes to Ambience. Guns, footsteps, fabric, calls, and animals go to SFX. The shared click (reload, zero, equip, dry fire, damage) goes to UI. There is no music stem yet; that bus is reserved.
+Cues are procedural mono PCM from `src/core/audio_synth.gd` (22050 Hz, no sample bank). `default_bus_layout.tres` is the shared Web and Desktop mix: Master at 0 dB with a limiter ceiling of −1 dBTP, Music −12 dB, Ambience −16 dB, SFX −6 dB, UI −10 dB. Wind, daylight bird chirps, and the trophy-lodge room go to Ambience. Guns, footsteps, fabric, calls, animals, paddle strokes, and impact stings go to SFX. The shared click (reload, zero, equip, dry fire) and the harvest sting go to UI. Predator damage is a thud plus a short grunt, not that click. There is no music stem yet; that bus is reserved.
 
 `AudioDirector` keeps Master muted until the first click, key, touch, or gamepad button, then resumes the Web Audio context if the browser had blocked autoplay. Leaving the window, or hiding the browser tab, mutes Music and Ambience and restores them on return. SFX and UI stay up.
 
-Footsteps (four takes per surface), clothing rustle (three takes), rifle echo tails, and the wendigo screech are built once and reused. Stance changes footstep level, and each play nudges pitch, so those cues are not resynthesized on every step.
+Footsteps (four takes per surface), clothing rustle (three takes), rifle echo tails, bird chirps, paddle strokes, and the short horror and harvest stings are built once and reused. Stance changes footstep level, and each play nudges pitch, so those cues are not resynthesized on every step.
+
+Daylight plays a chirp on a timer. A living werewolf or wendigo within 80 m hushes the birds. The ghost buck plays its chime once when it comes within 80 m. Aiming ducks the wind by 3 dB and, unless `enable_aim_breathing` is turned off on the hunter, plays a light breath loop at −22 dB. The lodge loops a soft room tone and, unless `enable_fire_crackle` is off, a hearth crackle.
 
 `tools/audio_mix_check.gd` checks those bus levels, the −1 dB ceiling, and that the pools are reused:
 
@@ -189,7 +191,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 
 | What | Bytes |
 | --- | ---: |
-| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (59 files) | 304,502 |
+| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (59 files) | 317,221 |
 | `dist/SportsmansQuest.pck` (Godot 4.7.2 pack in the repo) | 1,826,512 |
 | `dist/SportsmansQuest_Compressed.exe` | 70,573,064 |
 | `media_banner.jpg` / `media_screenshot.png` | 894,679 / 776,124 |
@@ -199,7 +201,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 | v1.0.0 `SportsmansQuest_Web.zip` | 18,599,295 |
 | `godot.wasm` inside the web zip | 39,514,754 |
 
-The 304,502 byte figure is the sum of those 59 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
+The 317,221 byte figure is the sum of those 59 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
 
 Pack versions are the major, minor, and patch integers in the `GDPC` header (format version 4, then `4, 7, 2` for the repo pack and `4, 2, 2` for the release pack). The repo pack's path table includes `res://media_banner.jpg` and `res://media_screenshot.png` plus compiled scripts. Release byte counts are the zip central directory (`unzip -l` on the v1.0.0 assets).
 

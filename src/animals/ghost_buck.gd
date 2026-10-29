@@ -11,6 +11,9 @@ var neck: Node3D
 var head_bone: Node3D
 var anim_t := 0.0
 var _phantom_light: OmniLight3D
+var _chime_player: AudioStreamPlayer3D
+var _chime_played := false
+const _CHIME_RANGE_M := 80.0
 
 func _setup_species() -> void:
 	species = "Ghost Buck (Mythical)"
@@ -150,6 +153,7 @@ func _build_model() -> Node3D:
 	return root
 
 func _animate(delta: float) -> void:
+	_maybe_chime()
 	if state == State.DEAD:
 		return
 	if speed > 0.2:
@@ -163,3 +167,20 @@ func _animate(delta: float) -> void:
 		if legs.size() == 4:
 			for l in legs:
 				l.rotation.x = move_toward(l.rotation.x, 0.0, delta * 3.0)
+
+func _maybe_chime() -> void:
+	if _chime_played or world == null or world.hunter == null:
+		return
+	if global_position.distance_to(world.hunter.global_position) > _CHIME_RANGE_M:
+		return
+	_chime_played = true
+	if _chime_player == null:
+		_chime_player = AudioStreamPlayer3D.new()
+		_chime_player.bus = AudioDirector.BUS_SFX
+		_chime_player.stream = AudioSynth.take_ghost_chime()
+		_chime_player.unit_size = 16.0
+		_chime_player.max_distance = 110.0
+		_chime_player.volume_db = -6.0
+		add_child(_chime_player)
+	_chime_player.pitch_scale = AudioSynth.vary_pitch(0.98, 1.03)
+	_chime_player.play()

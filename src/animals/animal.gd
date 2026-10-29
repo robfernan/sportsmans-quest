@@ -40,6 +40,8 @@ var sense_timer := 0.0
 var _last_track_pos := Vector3.ZERO
 var _last_blood_pos := Vector3.ZERO
 var _snort_player: AudioStreamPlayer3D
+var _hit_player: AudioStreamPlayer3D
+var _flee_player: AudioStreamPlayer3D
 var harvested := false
 var spawn_grace_timer := 3.5   # Brief settle so a spawn pop does not instant-spook the herd
 var fear_memory: float = 0.0
@@ -68,6 +70,16 @@ func setup(w: Node, pos: Vector3) -> void:
 	_snort_player.stream = AudioSynth.snort()
 	_snort_player.unit_size = 12.0
 	add_child(_snort_player)
+	_hit_player = AudioStreamPlayer3D.new()
+	_hit_player.bus = AudioDirector.BUS_SFX
+	_hit_player.unit_size = 8.0
+	_hit_player.max_distance = 48.0
+	add_child(_hit_player)
+	_flee_player = AudioStreamPlayer3D.new()
+	_flee_player.bus = AudioDirector.BUS_SFX
+	_flee_player.unit_size = 14.0
+	_flee_player.max_distance = 70.0
+	add_child(_flee_player)
 	for child in model.find_children("*", "MeshInstance3D", true, false):
 		_sil_meshes.append(child as MeshInstance3D)
 	global_position = pos
@@ -274,6 +286,7 @@ func receive_rumor(bonus: float, duration: float) -> void:
 func _start_flee(from_pos: Vector3, alert_herd: bool) -> void:
 	if state == State.DEAD:
 		return
+	var already_bolting := state == State.FLEE or state == State.WOUNDED
 	if state != State.WOUNDED:
 		state = State.FLEE
 	state_timer = flee_time * randf_range(0.8, 1.3)
@@ -294,6 +307,8 @@ func _start_flee(from_pos: Vector3, alert_herd: bool) -> void:
 		
 	if randf() < 0.7:
 		_snort_player.play()
+	if not already_bolting:
+		_play_flee_burst()
 	if alert_herd:
 		for m in herd:
 			if is_instance_valid(m) and m != self and m.state != State.DEAD:
@@ -346,10 +361,28 @@ func take_hit(origin: Vector3, dir: Vector3, weapon: String, is_pellet: bool) ->
 	weapon_used = weapon
 	_apply_wound(organ)
 	_spawn_blood_fx(global_position + Vector3(0, 0.6, 0), -dir, organ)
+	_play_hit_thud()
 	if state != State.DEAD:
-		state = State.WOUNDED
 		_start_flee(origin, true)
+		state = State.WOUNDED
 	return organ
+
+func _play_hit_thud() -> void:
+	if _hit_player == null:
+		return
+	_hit_player.stream = AudioSynth.take_hit_thud()
+	_hit_player.pitch_scale = AudioSynth.vary_pitch(0.92, 1.08)
+	_hit_player.play()
+
+func _play_flee_burst() -> void:
+	if _flee_player == null:
+		return
+	var cryptid := species.begins_with("Werewolf") or species.begins_with("Wendigo")
+	var stream := AudioSynth.take_flee_crash() if cryptid or weight_kg < 15.0 else AudioSynth.take_flee_hooves()
+	_flee_player.stream = stream
+	_flee_player.pitch_scale = AudioSynth.vary_pitch(0.94, 1.06)
+	_flee_player.volume_db = -6.0 if weight_kg < 15.0 else -2.0
+	_flee_player.play()
 
 func _spawn_blood_fx(pos: Vector3, normal: Vector3, organ: String) -> void:
 	if not world:

@@ -18,6 +18,8 @@ var dog: RetrieverDog
 var animals: Array = []
 var _ambient_wind_player: AudioStreamPlayer
 var _bird_player: AudioStreamPlayer
+var _bird_timer := 4.0
+const _CRYPTID_HUSH_M := 80.0
 var _ravens_node: Node3D = null
 var _session_time_seconds: float = 6.0 * 3600.0 # Starts at 06:00 AM (or 10:30 PM if Night Hunt)
 var _sun_light: DirectionalLight3D
@@ -518,6 +520,7 @@ func _physics_process(delta: float) -> void:
 
 	if _ravens_node:
 		_ravens_node.rotation.y += delta * 0.12
+	_tick_birds(delta)
 
 func _update_lighting_and_fog(_delta: float) -> void:
 	if not _sun_light or not _env:
@@ -572,6 +575,44 @@ func _update_wind_ambient() -> void:
 	_ambient_wind_player.volume_db = lerp(-22.0, -14.0, clamp(alt / 45.0, 0.0, 1.0))
 	if is_night:
 		_ambient_wind_player.volume_db -= 2.0
+	if hunter.is_aiming_optics:
+		_ambient_wind_player.volume_db -= 3.0
+
+func _tick_birds(delta: float) -> void:
+	if _bird_player == null:
+		return
+	if _cryptid_nearby() or not _birds_in_daylight():
+		if _bird_player.playing:
+			_bird_player.stop()
+		_bird_timer = maxf(_bird_timer, 1.5)
+		return
+	_bird_timer -= delta
+	if _bird_timer > 0.0:
+		return
+	var hr: float = fmod(_session_time_seconds / 3600.0, 24.0)
+	_bird_timer = randf_range(4.0, 9.0) if hr < 8.0 else randf_range(7.0, 16.0)
+	_bird_player.stream = AudioSynth.take_bird_chirp()
+	_bird_player.pitch_scale = AudioSynth.vary_pitch(0.92, 1.08)
+	_bird_player.play()
+
+func _birds_in_daylight() -> bool:
+	var hr: float = fmod(_session_time_seconds / 3600.0, 24.0)
+	return hr >= 5.0 and hr < 17.0
+
+func _cryptid_nearby() -> bool:
+	if hunter == null:
+		return false
+	var origin := hunter.global_position
+	for a in animals:
+		if not is_instance_valid(a):
+			continue
+		if not (a is Werewolf or a is Wendigo):
+			continue
+		if a.state == Animal.State.DEAD:
+			continue
+		if origin.distance_to(a.global_position) <= _CRYPTID_HUSH_M:
+			return true
+	return false
 
 func lake_center() -> Vector3:
 	return Vector3(Terrain.LAKE_CENTER.x, Terrain.WATER_LEVEL, Terrain.LAKE_CENTER.y)
