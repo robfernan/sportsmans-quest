@@ -34,7 +34,12 @@ var _tutorial_step: int = 0
 var _tutorial_timer: float = 0.0
 var _tutorial_label: Label
 
+var _note_time: float = 0.0
+var _spook_cd: float = 0.0
+var _downed_panel: Panel = null
+
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	hunter = get_tree().root.find_child("Hunter", true, false) as HunterController
 	wind_system = get_tree().root.find_child("WindSystem", true, false) as WindSystem
 	world = get_tree().root.find_child("Main", true, false)
@@ -45,6 +50,82 @@ func _ready() -> void:
 		fullscreen_btn.pressed.connect(_toggle_fullscreen)
 
 	_build_procedural_hud()
+	if wind_label:
+		wind_label.add_theme_color_override("font_color", Color(0.85, 0.72, 0.45))
+		wind_label.add_theme_color_override("font_shadow_color", Color(0.05, 0.04, 0.03, 0.85))
+		wind_label.add_theme_constant_override("shadow_offset_x", 1)
+		wind_label.add_theme_constant_override("shadow_offset_y", 1)
+	if notification_label:
+		notification_label.add_theme_font_size_override("font_size", 22)
+		notification_label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45))
+		notification_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		notification_label.add_theme_constant_override("shadow_offset_x", 1)
+		notification_label.add_theme_constant_override("shadow_offset_y", 1)
+	_connect_feedback()
+
+func _connect_feedback() -> void:
+	var gs := get_node_or_null("/root/GameState")
+	if gs:
+		if not gs.notify.is_connected(_on_game_notify):
+			gs.notify.connect(_on_game_notify)
+		if not gs.mission_completed.is_connected(_on_mission):
+			gs.mission_completed.connect(_on_mission)
+	var eb := get_node_or_null("/root/EventBus")
+	if eb == null:
+		return
+	if eb.has_signal("shot_resolved") and not eb.shot_resolved.is_connected(_on_shot):
+		eb.shot_resolved.connect(_on_shot)
+	if eb.has_signal("player_downed") and not eb.player_downed.is_connected(show_downed):
+		eb.player_downed.connect(show_downed)
+	if eb.has_signal("animal_spooked") and not eb.animal_spooked.is_connected(_on_spook):
+		eb.animal_spooked.connect(_on_spook)
+
+func push_note(text: String) -> void:
+	if notification_label == null:
+		return
+	notification_label.text = text
+	notification_label.visible = true
+	_note_time = 3.4
+
+func _on_game_notify(text: String) -> void:
+	push_note(text)
+
+func _on_mission(title: String) -> void:
+	push_note("MISSION COMPLETE: " + title)
+
+func _on_shot(organ: String, distance_m: float, fatal: bool) -> void:
+	if organ == "":
+		push_note("MISS")
+	elif fatal:
+		push_note("KILL  %s   %.0f m" % [organ, distance_m])
+	else:
+		push_note("HIT  %s   %.0f m" % [organ, distance_m])
+
+func _on_spook(_animal_id: int, animal_pos: Vector3, _alert_level: float) -> void:
+	if _spook_cd > 0.0 or hunter == null:
+		return
+	if hunter.global_position.distance_to(animal_pos) > 70.0:
+		return
+	_spook_cd = 5.0
+	push_note("SPOOKED — something heard or smelled you")
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE):
+		return
+	if _downed_panel != null and _downed_panel.visible:
+		get_viewport().set_input_as_handled()
+		return
+	var hm := get_tree().root.find_child("HuntermateMap", true, false)
+	if hm and hm.visible:
+		return
+	var hs := get_tree().root.find_child("HarvestScreen", true, false)
+	if hs and hs.visible:
+		return
+	var pie := get_tree().root.find_child("PieMenu", true, false)
+	if pie and bool(pie.get("is_open")):
+		return
+	toggle_pause()
+	get_viewport().set_input_as_handled()
 
 func _toggle_fullscreen() -> void:
 	var mode = DisplayServer.window_get_mode()
@@ -167,6 +248,13 @@ func _draw_scope_vignette() -> void:
 	_scope_overlay.draw_line(center - Vector2(0, r * 0.85), center + Vector2(0, r * 0.85), Color(0.1, 0.1, 0.1, 0.7), 1.5)
 
 func _process(delta: float) -> void:
+	if _note_time > 0.0:
+		_note_time -= delta
+		if _note_time <= 0.0 and notification_label:
+			notification_label.visible = false
+	if _spook_cd > 0.0:
+		_spook_cd -= delta
+
 	if not hunter:
 		hunter = get_tree().root.find_child("Hunter", true, false) as HunterController
 		return
@@ -184,11 +272,18 @@ func _process(delta: float) -> void:
 		stance_str = "KAYAK"
 
 	var noise = hunter.get_noise_radius()
+	var noise_band := "QUIET"
+	if noise >= 40.0:
+		noise_band = "ALARM"
+	elif noise >= 15.0:
+		noise_band = "LOUD"
+	elif noise >= 3.0:
+		noise_band = "SOFT"
 	var current_item = hunter.get_current_weapon_display_name() if hunter.has_method("get_current_weapon_display_name") else "Equipment"
-	var hp_str = "❤️ HP: %.0f" % hunter.health if "health" in hunter else "❤️ HP: 100"
+	var hp_str = "HP %.0f" % hunter.health if "health" in hunter else "HP 100"
 	
-	stance_label.text = "%s | [%s] | %s | NOISE: %.0fm  [M: Map | F: Zero | G: Decoy | B: Blind | K: Dog]" % [
-		hp_str, current_item, stance_str, noise
+	stance_label.text = "%s  |  %s  |  %s  |  NOISE %s %.0fm" % [
+		hp_str, current_item, stance_str, noise_band, noise
 	]
 
 	# Ammo Count (Bottom Right)
@@ -210,10 +305,14 @@ func _process(delta: float) -> void:
 
 	# Wind & Clock display
 	if wind_system:
-		var dir = wind_system.current_wind_direction
 		var speed = wind_system.current_wind_speed
+		var card: String = wind_system.blowing_toward_cardinal() if wind_system.has_method("blowing_toward_cardinal") else "?"
 		var clock_str = world.clock_string() if (world and world.has_method("clock_string")) else "08:00 AM"
-		wind_label.text = "%s  |  WIND: %.1f m/s (%.1f, %.1f)  [P: Powder Puff]" % [clock_str, speed, dir.x, dir.z]
+		var smelling := 0
+		if world and hunter and wind_system.has_method("count_animals_smelling") and "animals" in world:
+			smelling = wind_system.count_animals_smelling(hunter.global_position, world.animals)
+		var scent := "UPWIND" if smelling == 0 else "DOWNWIND x%d" % smelling
+		wind_label.text = "%s  |  WIND %s %.1f m/s  |  SCENT %s" % [clock_str, card, speed, scent]
 
 	# Optics & Crosshair drop indicator
 	var aiming = hunter.is_aiming_optics
@@ -248,9 +347,14 @@ func _process(delta: float) -> void:
 
 	_update_tutorial(delta)
 
+func _tutorial_done() -> bool:
+	var gs := get_node_or_null("/root/GameState")
+	if gs == null or not (gs.seen_tutorial is Dictionary):
+		return true
+	return bool(gs.seen_tutorial.get("sprint", false)) and bool(gs.seen_tutorial.get("crouch", false)) and bool(gs.seen_tutorial.get("aim_vital", false))
+
 func _update_tutorial(delta: float) -> void:
-	var gs = get_node_or_null("/root/GameState")
-	if gs and gs.seen_tutorial:
+	if _tutorial_done():
 		if _tutorial_label:
 			_tutorial_label.visible = false
 		return
@@ -282,15 +386,17 @@ func _show_tip(text: String) -> void:
 		_tutorial_label.visible = true
 
 func _advance_tip() -> void:
+	var flags := ["sprint", "crouch", "aim_vital"]
+	var gs := get_node_or_null("/root/GameState")
+	if gs and gs.seen_tutorial is Dictionary and _tutorial_step >= 0 and _tutorial_step < flags.size():
+		gs.seen_tutorial[flags[_tutorial_step]] = true
 	_tutorial_step += 1
 	_tutorial_timer = 0.0
 	_walk_time = 0.0
 	if _tutorial_step >= 3:
 		if _tutorial_label:
 			_tutorial_label.visible = false
-		var gs = get_node_or_null("/root/GameState")
-		if gs:
-			gs.seen_tutorial = true
+		if gs and _tutorial_done():
 			gs.save_game()
 
 var _pause_panel: Panel = null
@@ -299,11 +405,18 @@ var is_paused: bool:
 		return _pause_panel != null and _pause_panel.visible
 
 func toggle_pause() -> void:
+	if _downed_panel != null and _downed_panel.visible:
+		return
 	if _pause_panel == null:
 		_create_pause_menu()
 	_pause_panel.visible = not _pause_panel.visible
-	if _pause_panel.visible:
+	var pausing: bool = _pause_panel.visible
+	get_tree().paused = pausing
+	if pausing:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		var resume := _pause_panel.find_child("ResumeButton", true, false)
+		if resume is Control:
+			resume.grab_focus()
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -329,6 +442,7 @@ func _create_pause_menu() -> void:
 	vbox.add_child(title)
 	
 	var resume_btn := Button.new()
+	resume_btn.name = "ResumeButton"
 	resume_btn.text = "RESUME HUNT"
 	resume_btn.custom_minimum_size = Vector2(0, 44)
 	resume_btn.pressed.connect(toggle_pause)
@@ -338,18 +452,71 @@ func _create_pause_menu() -> void:
 	lodge_btn.text = "VISIT 3D TROPHY LODGE"
 	lodge_btn.custom_minimum_size = Vector2(0, 44)
 	lodge_btn.pressed.connect(func():
+		get_tree().paused = false
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		var gs := get_node_or_null("/root/GameState")
+		if gs:
+			gs.save_game()
 		get_tree().change_scene_to_file("res://scenes/trophy_lodge.tscn")
 	)
 	vbox.add_child(lodge_btn)
 	
 	var ret_btn := Button.new()
-	ret_btn.text = "RETURN TO MAIN MENU (ESC / F10)"
+	ret_btn.text = "RETURN TO MAIN MENU"
 	ret_btn.custom_minimum_size = Vector2(0, 44)
 	ret_btn.pressed.connect(func():
+		get_tree().paused = false
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		var gs := get_node_or_null("/root/GameState")
+		if gs:
+			gs.save_game()
 		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 	)
 	vbox.add_child(ret_btn)
 	
 	add_child(_pause_panel)
+
+func show_downed() -> void:
+	if _downed_panel != null:
+		return
+	if _pause_panel:
+		_pause_panel.visible = false
+	_downed_panel = Panel.new()
+	_downed_panel.name = "DownedPanel"
+	_downed_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.08, 0.02, 0.02, 0.9)
+	_downed_panel.add_theme_stylebox_override("panel", bg)
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.custom_minimum_size = Vector2(420, 160)
+	vbox.add_theme_constant_override("separation", 14)
+	_downed_panel.add_child(vbox)
+	var title := Label.new()
+	title.text = "YOU ARE DOWN"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(0.95, 0.35, 0.2))
+	vbox.add_child(title)
+	var body := Label.new()
+	body.text = "The reserve got to you. Trophies already saved stay in the lodge."
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(400, 40)
+	vbox.add_child(body)
+	var camp := Button.new()
+	camp.text = "RETURN TO CAMP"
+	camp.custom_minimum_size = Vector2(0, 46)
+	camp.pressed.connect(func():
+		get_tree().paused = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		var gs := get_node_or_null("/root/GameState")
+		if gs:
+			gs.save_game()
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	vbox.add_child(camp)
+	add_child(_downed_panel)
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	camp.grab_focus()

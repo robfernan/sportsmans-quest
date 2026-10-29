@@ -39,6 +39,8 @@ func open_map() -> void:
 	if not world:
 		world = get_tree().root.find_child("Main", true, false)
 	map_canvas.queue_redraw()
+	if close_btn:
+		close_btn.grab_focus()
 
 func close_map() -> void:
 	visible = false

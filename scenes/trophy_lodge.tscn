@@ -48,7 +48,7 @@ grow_horizontal = 2
 grow_vertical = 0
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 0.8)
 theme_override_font_sizes/font_size = 14
-text = "WASD: Walk  |  Mouse: Look  |  ESC: Free Mouse"
+text = "WASD walk  |  Mouse look  |  ESC frees the cursor  |  ESC again returns to menu"
 horizontal_alignment = 1
 
 [node name="ExitButton" type="Button" parent="UI"]

@@ -18,7 +18,8 @@ var _blood_i := 0
 func setup(t: Terrain) -> void:
 	terrain = t
 	_track_mm = _make_mm(Vector2(0.09, 0.13), Color(0.12, 0.09, 0.06, 0.85), MAX_TRACKS)
-	_blood_mm = _make_mm(Vector2(0.12, 0.12), Color(0.45, 0.02, 0.02, 0.95), MAX_BLOOD)
+	# Art-blocked trail color is #8B1E1E. Do not tint this pink.
+	_blood_mm = _make_mm(Vector2(0.12, 0.12), Color(0.545098, 0.117647, 0.117647, 0.95), MAX_BLOOD)
 
 func _make_mm(size: Vector2, color: Color, count: int) -> MultiMesh:
 	var q := QuadMesh.new()

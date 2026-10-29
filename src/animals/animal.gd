@@ -41,12 +41,16 @@ var _last_track_pos := Vector3.ZERO
 var _last_blood_pos := Vector3.ZERO
 var _snort_player: AudioStreamPlayer3D
 var harvested := false
-var spawn_grace_timer := 8.0   # 8-second spawn grace period to prevent immediate spooking
+var spawn_grace_timer := 3.5   # Brief settle so a spawn pop does not instant-spook the herd
 var fear_memory: float = 0.0
 var rumor_threat_bonus: float = 0.0
 var rumor_timer: float = 0.0
 
 const ORGAN_RANK := {"Brain": 6, "Spine": 5, "Heart": 4, "Lungs": 3, "Liver": 2, "Stomach": 1, "Flesh": 0}
+const BLOOD_TRAIL := Color(0.545098, 0.117647, 0.117647) # #8B1E1E
+
+var _sil_meshes: Array[MeshInstance3D] = []
+var _fog_sil_mat: StandardMaterial3D
 
 func setup(w: Node, pos: Vector3) -> void:
 	world = w
@@ -63,6 +67,8 @@ func setup(w: Node, pos: Vector3) -> void:
 	_snort_player.stream = AudioSynth.snort()
 	_snort_player.unit_size = 12.0
 	add_child(_snort_player)
+	for child in model.find_children("*", "MeshInstance3D", true, false):
+		_sil_meshes.append(child as MeshInstance3D)
 	global_position = pos
 	rotation.y = randf() * TAU
 	_last_track_pos = pos
@@ -104,8 +110,11 @@ func _physics_process(delta: float) -> void:
 			rumor_threat_bonus = 0.0
 			
 	var hunter: Node3D = world.hunter
-	var far := global_position.distance_to(hunter.global_position) > 300.0
+	var dist_to_hunter := global_position.distance_to(hunter.global_position)
+	var far := dist_to_hunter > 300.0
 	model.visible = not far
+	if not far:
+		_update_fog_silhouette(dist_to_hunter)
 	sense_timer -= delta
 	if sense_timer <= 0.0:
 		sense_timer = 0.25 if not far else 1.0
@@ -359,7 +368,7 @@ func _spawn_blood_fx(pos: Vector3, normal: Vector3, organ: String) -> void:
 			vel_mult = 1.1
 			grav_mult = 1.4
 		"Lungs":
-			col = Color(1.0, 0.7, 0.75) # Frothy pink
+			col = BLOOD_TRAIL
 			vel_mult = 1.0
 			up_bias = 0.4
 		"Liver":
@@ -414,12 +423,13 @@ func _spawn_blood_fx(pos: Vector3, normal: Vector3, organ: String) -> void:
 				var blob_rad := 14.0 + sin(angle * 5.0) * 6.0 + cos(angle * 7.0) * 4.0
 				if dist_c < blob_rad:
 					var a: float = clamp((1.0 - (dist_c / blob_rad)) * 1.5, 0.0, randf_range(0.7, 0.9))
-					img.set_pixel(px, py, Color(col.r, col.g, col.b, a))
+					img.set_pixel(px, py, Color(BLOOD_TRAIL.r, BLOOD_TRAIL.g, BLOOD_TRAIL.b, a))
 				elif randf() < 0.02 and dist_c < 28.0:
-					img.set_pixel(px, py, Color(col.r, col.g, col.b, randf_range(0.5, 0.8)))
+					img.set_pixel(px, py, Color(BLOOD_TRAIL.r, BLOOD_TRAIL.g, BLOOD_TRAIL.b, randf_range(0.5, 0.8)))
 					
 		var tex := ImageTexture.create_from_image(img)
 		var dmat := StandardMaterial3D.new()
+		dmat.albedo_color = BLOOD_TRAIL
 		dmat.albedo_texture = tex
 		dmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		dmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -462,11 +472,30 @@ func _update_bleeding(delta: float) -> void:
 		if bleed_time <= 0.0:
 			_die()
 
+func _update_fog_silhouette(dist: float) -> void:
+	var gs = get_node_or_null("/root/GameState")
+	var fog: float = float(gs.fog_density) if gs else 0.0
+	var strength: float = clamp((dist - 28.0) / 70.0, 0.0, 1.0) * clamp(fog, 0.0, 1.0)
+	var on: bool = strength >= 0.2
+	if on:
+		if _fog_sil_mat == null:
+			_fog_sil_mat = StandardMaterial3D.new()
+			_fog_sil_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_fog_sil_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			_fog_sil_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_fog_sil_mat.albedo_color = Color(0.015, 0.02, 0.025, strength)
+	for mesh in _sil_meshes:
+		if is_instance_valid(mesh):
+			mesh.material_overlay = _fog_sil_mat if on else null
+
 func _die() -> void:
 	state = State.DEAD
 	speed = 0.0
 	bleed_time = -1.0
 	model.visible = true
+	for mesh in _sil_meshes:
+		if is_instance_valid(mesh):
+			mesh.material_overlay = null
 	var col = get_node_or_null("CollisionShape3D") as CollisionShape3D
 	if col:
 		col.disabled = true

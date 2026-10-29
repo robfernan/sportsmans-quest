@@ -196,6 +196,8 @@ func _spawn_player_and_vehicles() -> void:
 	dog.name = "HuntingDog"
 	dog.position = Vector3(spawn_x + 2.0, spawn_y, spawn_z + 1.5)
 	add_child(dog)
+	if not dog.retrieve_finished.is_connected(_on_dog_retrieved):
+		dog.retrieve_finished.connect(_on_dog_retrieved)
 
 	var dcol := CollisionShape3D.new()
 	var dbox := BoxShape3D.new(); dbox.size = Vector3(0.4, 0.6, 0.9)
@@ -223,6 +225,10 @@ func _spawn_player_and_vehicles() -> void:
 	if map_scene:
 		var hm = map_scene.instantiate()
 		add_child(hm)
+
+func _on_dog_retrieved(item: Node) -> void:
+	if hunter and is_instance_valid(item):
+		hunter.claim_harvest(item)
 
 func _on_pie_item_selected(item_id: String) -> void:
 	if not hunter:

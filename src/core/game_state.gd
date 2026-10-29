@@ -85,6 +85,7 @@ func save_game() -> void:
 	for m in missions:
 		if m.done:
 			done_ids.append(m.id)
+	settings["night_hunt"] = is_night_hunt
 	var data := {
 		"version": CURRENT_SAVE_VERSION,
 		"trophies": trophies,
@@ -124,8 +125,16 @@ func load_game() -> void:
 	is_night_hunt = settings.get("night_hunt", false)
 	
 	var tut = data.get("seen_tutorial", {})
-	for k in tut:
-		seen_tutorial[k] = tut[k]
+	# Older builds saved `true` here and then crashed on the next load.
+	if typeof(tut) == TYPE_BOOL:
+		if tut:
+			seen_tutorial["sprint"] = true
+			seen_tutorial["crouch"] = true
+			seen_tutorial["aim_vital"] = true
+	elif typeof(tut) == TYPE_DICTIONARY:
+		for k in tut:
+			if seen_tutorial.has(k):
+				seen_tutorial[k] = bool(tut[k])
 		
 	animal_fear = data.get("animal_fear", {})
 	

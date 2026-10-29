@@ -36,6 +36,26 @@ func _update_wind() -> void:
 func get_current_wind_vector() -> Vector3:
 	return current_wind_direction * current_wind_speed
 
+## Cardinal the wind is blowing toward. -Z is north, matching the HUD compass.
+func blowing_toward_cardinal() -> String:
+	var degrees := fmod(rad_to_deg(atan2(current_wind_direction.x, -current_wind_direction.z)) + 360.0, 360.0)
+	var names := ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+	return names[int(round(degrees / 45.0)) % 8]
+
+## How many living animals inside max_range are downwind of the hunter.
+func count_animals_smelling(hunter_pos: Vector3, animals: Array, max_range: float = 180.0) -> int:
+	var smelling := 0
+	for a in animals:
+		if not is_instance_valid(a) or not (a is Animal):
+			continue
+		if a.state == Animal.State.DEAD:
+			continue
+		if hunter_pos.distance_to(a.global_position) > max_range:
+			continue
+		if calculate_scent_exposure(hunter_pos, a.global_position, max_range) > 0.08:
+			smelling += 1
+	return smelling
+
 ## Calculates how much of the player's scent reaches a target position.
 ## Returns a factor from 0.0 (upwind/undetected) to 1.0 (directly downwind/strong scent).
 func calculate_scent_exposure(hunter_pos: Vector3, animal_pos: Vector3, max_scent_range: float = 250.0) -> float:

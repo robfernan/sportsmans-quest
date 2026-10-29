@@ -9,6 +9,7 @@ extends Node3D
 @onready var lodge_info_label: Label = $UI/InfoLabel
 
 func _ready() -> void:
+	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_build_cabin_geometry()
 	_populate_harvested_trophies()
@@ -18,13 +19,28 @@ func _ready() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ESCAPE or event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+		if event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT:
+			_leave()
 			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_ESCAPE:
+			if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			else:
+				_leave()
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and get_viewport().gui_get_hovered_control() == null:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _leave() -> void:
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _on_exit_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	_leave()
 
 func _build_cabin_geometry() -> void:
 	# Materials

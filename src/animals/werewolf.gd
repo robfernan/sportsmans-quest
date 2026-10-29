@@ -148,20 +148,29 @@ func _think(delta: float) -> void:
 		_howl_player.play()
 		print("[HOWL] A bloodcurdling wolf howl resonates through the hollow...")
 
-	# Stalk & Aggressive Attack AI: Once hunter is within 90m, werewolf rushes to attack!
-	if d_to_hunter < 95.0 and state != State.WOUNDED:
-		state = State.FLEE # Uses sprint speed
-		flee_dir = (hunter.global_position - global_position).normalized()
-		speed = run_speed
-		_face(hunter.global_position, delta * 5.0)
-		_advance(-global_transform.basis.z, delta)
-		
-		# Melee strike range
-		if d_to_hunter < 2.5 and attack_cooldown <= 0.0:
-			attack_cooldown = 1.4
-			if hunter.has_method("take_damage"):
-				hunter.take_damage(25.0)
-			print("[DANGER!] Werewolf slashed the hunter with savage claws!")
+	if hunter.get("is_downed"):
+		super._think(delta)
+		return
+
+	# Close at a walk, then commit. A 95 m sprint left no time to stalk.
+	const stalk_range := 70.0
+	const rush_range := 16.0
+	if d_to_hunter < stalk_range and state != State.WOUNDED:
+		_face(hunter.global_position, delta * 4.0)
+		if d_to_hunter < rush_range:
+			state = State.FLEE
+			flee_dir = (hunter.global_position - global_position).normalized()
+			speed = run_speed
+			_advance(-global_transform.basis.z, delta)
+			if d_to_hunter < 2.5 and attack_cooldown <= 0.0:
+				attack_cooldown = 1.4
+				if hunter.has_method("take_damage"):
+					hunter.take_damage(25.0)
+				print("[DANGER!] Werewolf slashed the hunter with savage claws!")
+		else:
+			state = State.ALERT
+			speed = walk_speed
+			_advance(-global_transform.basis.z, delta)
 	else:
 		super._think(delta)
 
