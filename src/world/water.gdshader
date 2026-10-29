@@ -2,7 +2,6 @@ shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_always;
 
 uniform vec4 water_color : source_color = vec4(0.07, 0.2, 0.24, 0.82);
-uniform sampler2D wave_normal : hint_normal, filter_linear_mipmap, repeat_enable;
 
 varying vec3 wpos;
 
@@ -12,11 +11,10 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv1 = wpos.xz * 0.05 + vec2(TIME * 0.01, TIME * 0.006);
-	vec2 uv2 = wpos.xz * 0.09 - vec2(TIME * 0.008, -TIME * 0.011);
-	vec3 n = normalize(texture(wave_normal, uv1).rgb + texture(wave_normal, uv2).rgb - 1.0);
-	NORMAL_MAP = n;
-	NORMAL_MAP_DEPTH = 0.6;
+	// Same waves as the vertex shader. No normal texture is assigned in this project.
+	float slope_x = cos(wpos.x * 0.35 + TIME * 1.2) * 0.35 * 0.025;
+	float slope_z = -sin(wpos.z * 0.3 + TIME) * 0.3 * 0.025;
+	NORMAL = normalize(vec3(-slope_x, 1.0, -slope_z));
 	ALBEDO = water_color.rgb;
 	ALPHA = water_color.a;
 	ROUGHNESS = 0.04;

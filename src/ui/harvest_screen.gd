@@ -67,6 +67,16 @@ func _ready() -> void:
 	if cam_angle_btn:
 		cam_angle_btn.pressed.connect(_on_cycle_cam_angle)
 
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if is_in_photo_mode:
+			_on_exit_photo_mode()
+		else:
+			_on_accept_pressed()
+		get_viewport().set_input_as_handled()
+
 func show_harvest(record: Dictionary, animal: Node3D = null) -> void:
 	current_record = record
 	target_animal = animal
@@ -81,10 +91,11 @@ func show_harvest(record: Dictionary, animal: Node3D = null) -> void:
 		record.get("harvest_time", "08:15 AM")
 	]
 	
-	shot_details_label.text = "WEAPON: %s\nHIT ORGAN: %s\nSHOT DISTANCE: %.1f METERS\nETHICS RATING: 100%%" % [
+	shot_details_label.text = "WEAPON: %s\nHIT ORGAN: %s\nSHOT DISTANCE: %.1f METERS\nETHICS RATING: %d%%" % [
 		record.get("weapon_used", "Hunting Rifle"),
 		record.get("organ_hit", "Heart"),
-		record.get("shot_distance_m", 0.0)
+		record.get("shot_distance_m", 0.0),
+		int(record.get("harvest_quality", 0))
 	]
 
 	# Build or update live 3D Ballistic X-Ray view

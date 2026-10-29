@@ -7,6 +7,17 @@
 dist/SportsmansQuest.exe
 dist/*.zip
 dist/web/
+dist/linux/
+dist/macos/
+
+# Signing material. Never commit.
+export_credentials.cfg
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
 dist/web_build/
 dist/web_inspect/
 dist/tmp_chrome/

@@ -52,17 +52,14 @@ func _draw() -> void:
 		var dog_pos = center + Vector2(dog.global_position.x * map_scale, dog.global_position.z * map_scale)
 		draw_circle(dog_pos, 4.0, Color(0.9, 0.65, 0.2), true)
 
-	# 4b. Draw Active Birds & Waterfowl Radar Blips
+	# 4b. Birds marked in brass on the paper map. Not a radar sweep.
 	if world and world.animals:
-		var bird_col := Color(0.3, 0.85, 0.95, 0.9)
+		var bird_col := Color(0.72, 0.55, 0.28, 0.82)
 		for a in world.animals:
 			if is_instance_valid(a) and a is Duck and a.state != Animal.State.DEAD:
 				var b_pos = center + Vector2(a.global_position.x * map_scale, a.global_position.z * map_scale)
-				# Draw duck blip with wing chevron if in flight
-				draw_circle(b_pos, 3.2, bird_col, true)
-				if a.dstate == Duck.DuckState.FLY:
-					draw_line(b_pos - Vector2(4, 2), b_pos, Color.WHITE, 1.2)
-					draw_line(b_pos, b_pos + Vector2(4, -2), Color.WHITE, 1.2)
+				var flying: bool = a.dstate == Duck.DuckState.FLY
+				draw_circle(b_pos, 3.4 if flying else 2.2, bird_col, true)
 
 	# 5. Draw Player / Hunter Marker (Arrow pointer)
 	var hunter = parent_map.hunter if parent_map else null

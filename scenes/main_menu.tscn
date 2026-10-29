@@ -116,5 +116,5 @@ grow_horizontal = 2
 grow_vertical = 0
 theme_override_colors/font_color = Color(0.45, 0.5, 0.45, 0.8)
 theme_override_font_sizes/font_size = 12
-text = "Sportsman's Quest v0.2.0 • 100% Free & Open Source Hunting Engine"
+text = "Sportsman's Quest  •  Godot 4.7"
 horizontal_alignment = 1

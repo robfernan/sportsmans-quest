@@ -10,6 +10,9 @@ extends CharacterBody3D
 @onready var camera: Camera3D = $Head/Camera3D
 
 func _ready() -> void:
+	var gs = get_node_or_null("/root/GameState")
+	if gs and gs.settings is Dictionary:
+		mouse_sensitivity = 0.0025 * clamp(float(gs.settings.get("mouse_sens", 1.0)), 0.4, 2.0)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _input(event: InputEvent) -> void:

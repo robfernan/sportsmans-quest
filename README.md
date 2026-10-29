@@ -44,7 +44,7 @@ The main scene is `scenes/main_menu.tscn`.
 
 `dist/SportsmansQuest_Compressed.exe` (70,573,064 bytes, Windows PE32+ x86-64) sits next to `dist/SportsmansQuest.pck`. `dist/launch_game.ps1` starts `SportsmansQuest.exe`, and `.gitignore` excludes that filename. Use the release zip or the Godot editor for a known-good launch.
 
-The Windows export preset still records product version `0.2.0`. The git tag is `v1.0.0`.
+The Windows and macOS export presets record product version `1.0.0`, matching the git tag. This tree is not a new tagged release.
 
 ## On the reserve
 
@@ -54,7 +54,7 @@ You hunt in first person. Deer, foxes, and ducks react to scent on the wind, to 
 
 `G` places a floating mallard decoy. `B` pitches a reed blind. `E` boards the kayak, climbs a stand, and harvests a downed animal. Hold `Q` or `Tab` for a gear wheel with the rifle, shotgun, binoculars, deer call, and duck call. Wind powder is `6` or `P`, then left click.
 
-`K` switches the retriever between heel and stay. Blood tracking and a water retrieve are implemented on `RetrieverDog`. `hunter_controller.gd` never calls `order_fetch`.
+`K` tells the retriever to heel, stay, work a nearby blood trail, or retrieve a downed mallard that is still on the water. The dog brings the bird back and the harvest card opens.
 
 A harvest opens a third-person photo pose. Trophies are written to `user://sportsmans_quest_save.json`.
 
@@ -78,27 +78,96 @@ Spawn lists in `src/world/game_world.gd` place 32 whitetail (six herds of four, 
 | `F` | Rifle zero: 100 m, then 200 m, then 300 m |
 | `M` | Huntermate map |
 | `G` / `B` | Duck decoy / reed blind |
-| `K` | Dog: heel or stay |
+| `K` | Dog: heel, stay, blood trail, or retrieve a downed mallard |
 | `Q` or `Tab` (hold) | Gear wheel |
 | `E` | Interact |
-| `Esc` | Pause |
+| `Esc` | Pause. The reserve stops. Esc again resumes. |
 | Backtick or `F10` | Return to the main menu |
 
 ## Build
 
-Preset names are in `export_presets.cfg`. Godot 4.7 export templates have to be installed.
+Stay on **Godot 4.7 stable**. Do not open this project in 4.8 or later. `project.godot` feature tag is `4.7`. Presets in `export_presets.cfg` leave `custom_template/debug` and `custom_template/release` empty so Godot uses the templates installed for that editor. There is no machine-local template path.
+
+Install the export templates that match the editor patch, for example `4.7.2.stable`:
+
+| OS | Template folder |
+| --- | --- |
+| Windows | `%APPDATA%\Godot\export_templates\4.7.2.stable\` |
+| Linux | `~/.local/share/godot/export_templates/4.7.2.stable/` |
+| macOS | `~/Library/Application Support/Godot/export_templates/4.7.2.stable/` |
+
+Editor: Manage Export Templates, or unzip `Godot_v4.7.2-stable_export_templates.tpz` into that folder. Set `GODOT` to the 4.7 editor binary if it is not on `PATH`.
 
 ```bash
-godot --headless --path . --export-pack "Windows Desktop (Ultra-Lite)" dist/SportsmansQuest.pck
-
-godot --headless --path . --export-release "Windows Desktop (Ultra-Lite)" dist/SportsmansQuest.exe
-
+# Smoke the menu, then the reserve. No templates required.
+godot --headless --path . --quit-after 2
 godot --headless --path . res://scenes/main.tscn --quit-after 3
+
+# Pack only (no export templates). Proves the preset loads.
+python tools/export_release.py pack windows
+python tools/export_release.py pack linux
+python tools/export_release.py pack macos
+python tools/export_release.py pack web
+
+# Release binaries. Requires the matching 4.7 templates.
+python tools/export_release.py windows   # dist/SportsmansQuest.exe (pck embedded)
+python tools/export_release.py linux     # dist/linux/SportsmansQuest.x86_64
+python tools/export_release.py macos     # dist/macos/SportsmansQuest.zip
+python tools/export_release.py web       # dist/web/index.html
+python tools/package_windows.py          # dist/SportsmansQuest_Windows_ReadyToPlay.zip
 ```
 
-The last line is a short smoke run of the reserve scene. The Web preset is named `Web` and writes `dist/web/index.html`. Its `custom_template/release` value points at `C:\Users\User\AppData\Roaming\Godot\export_templates\4.7.2.stable\...` on the author's PC. Point that field at your own web export template before a web export.
+`tools/build_web.py` is the web target. Serve `dist/web/` and open the root. Do not open `index.html` as a file URL.
 
-`tools/build_web.py` and `tools/package_windows.py` hardcode that same project path. The v1.0.0 web zip is a stock Godot web export (`index.html`, `godot.js`, `godot.wasm`, `godot.pck`). The Windows zip is `SportsmansQuest.exe` plus `SportsmansQuest.pck`.
+```bash
+cd dist/web
+python -m http.server 8080
+```
+
+### Device matrix
+
+| Target | Preset | Output | This repo |
+| --- | --- | --- | --- |
+| Windows | Windows Desktop (Ultra-Lite) | `dist/SportsmansQuest.exe` | Preset documented. Release export needs the Windows template. |
+| Linux | Linux Desktop | `dist/linux/SportsmansQuest.x86_64` | Preset documented. x86_64, pck embedded. |
+| macOS | macOS Desktop | `dist/macos/SportsmansQuest.zip` | Preset documented. Universal binary, ad-hoc signature (`codesign/codesign=1`), notarization off. Gatekeeper will warn. Not built on Linux CI. |
+| Web | Web | `dist/web/index.html` | Preset documented. `thread_support=false`, `extensions_support=false`, empty custom template, so Godot picks `web_nothreads_release.zip`. |
+| Android | none | — | Blocked. `Mobile` in `config/features` is the compatibility renderer tag, not a touch build. The input map is keyboard and mouse. No Android preset. |
+
+Web caveats:
+
+- **Nothreads.** Itch and plain `python -m http.server` do not send COOP/COEP. The nothreads template is the one that runs there. Do not flip `variant/thread_support` on without those headers.
+- **Audio focus.** Browsers block audio until a gesture. Menu wind starts on the first click or key. Click the canvas if the reserve is silent.
+- **Memory.** The reserve builds terrain, herds, and synth WAVs in RAM. Footsteps are cached. A desktop browser is the target. Mobile browsers are not a supported port.
+- **Pointer lock.** Click the game after load. Esc pauses and releases the mouse.
+
+These rebuilds do not replace the live itch page.
+
+## Art handoff
+
+Hand to Game Art Director. This pass does not invent a palette or new sprites.
+
+Support-only flags for Whispering Pines: pine teal, blaze vest, blood-moon / cryptid eye, first-person camera, and brass UI shared with Hopeless Catch. Wind and scent stay brass and haze on the existing top label. They are not a radar.
+
+Blocked-art fallbacks already in code:
+
+- Distant animals pick up a dark fog silhouette in `src/animals/animal.gd` (`_update_fog_silhouette`). Close animals keep their block meshes.
+- Blood trail is `#8B1E1E` in `src/world/track_manager.gd` and the ground decal in `src/animals/animal.gd`. Lung hit spray is that color, not pink.
+- Bird marks on the paper map in `src/ui/map_canvas_drawer.gd` are brass dots. The cyan radar blip is gone.
+
+Gaps, with the paths that own them:
+
+| Gap | Where | If art replaces it |
+| --- | --- | --- |
+| First-person arms and blaze vest | Hunt camera is `Head/Camera3D` in `src/player/hunter.tscn`. Vest color exists only on the photo rig in `src/player/hunter_third_person_builder.gd` (`Color(0.88, 0.40, 0.08)`). | FP arms mesh. A 1024 vest/jacket sheet if the photo rig is replaced. |
+| Pine teal | `src/world/tree_builder.gd` leaf `Color(0.16, 0.28, 0.18)`, bark `Color(0.24, 0.16, 0.10)`. No needle texture. | Foliage mesh or atlas. `src/world/foliage.gdshader` has a tint uniform and no sampler. |
+| Cryptid eyes | Box meshes: `src/animals/werewolf.gd`, `src/animals/wendigo.gd`, `src/animals/ghost_buck.gd`. | Blood-moon eye treatment on those meshes. No new creature design in code. |
+| Water normal | `src/world/water.gdshader` uses the vertex wave. Nothing assigned a normal map. | `res://assets/water_normal.png`, 512×512, then a sampler in that shader. |
+| Terrain albedo | `src/world/terrain.gdshader` has no texture slot. | Adding one means a new `sampler2D` plus a 2048 map. |
+| Icon | `res://icon.svg` only. | 256 and 512 PNG. macOS export also accepts `.icns`. |
+| Audio | `src/core/audio_synth.gd` only. No `.ogg` / `.wav` / `.mp3`. | Short ogg files if synth is replaced. |
+
+The hunt camera stays first person. Third person is the harvest photo pose only.
 
 ## Size
 

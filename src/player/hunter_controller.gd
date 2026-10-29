@@ -18,6 +18,9 @@ enum ShotgunAmmo { BIRDSHOT, BUCKSHOT, SLUG }
 @export var prone_speed: float = 0.8
 @export var jump_velocity: float = 4.5
 @export var mouse_sensitivity: float = 0.0025
+@export var ground_accel: float = 32.0
+@export var ground_friction: float = 28.0
+@export var kayak_mission_meters: float = 40.0
 
 @export_group("Noise Radii (Meters)")
 @export var sprint_noise_radius: float = 75.0
@@ -52,6 +55,7 @@ const MAX_HEALTH: float = 100.0
 # Third-person model node (shown during photo mode)
 var third_person_mesh: Node3D = null
 var is_photo_mode: bool = false
+var is_downed: bool = false
 
 # Audio players
 var _gun_audio: AudioStreamPlayer
@@ -60,7 +64,16 @@ var _click_audio: AudioStreamPlayer
 var _footstep_audio: AudioStreamPlayer
 var _fabric_audio: AudioStreamPlayer
 var _breathing_audio: AudioStreamPlayer
+var _reverb_audio: AudioStreamPlayer
 var _step_timer: float = 0.0
+var _step_cache: Dictionary = {}
+var _kayak_travel: float = 0.0
+var _last_kayak_pos: Vector3 = Vector3.ZERO
+var _kayak_mission_sent: bool = false
+var _block_harvest: Node
+var _block_map: Node
+var _block_hud: Node
+var _block_pie: Node
 
 # Camera & Movement Juice
 var _head_target_y: float = 1.7
@@ -91,6 +104,7 @@ var _foot_wood_sound: AudioStreamWAV
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_apply_saved_sensitivity()
 	floor_snap_length = 0.4
 	max_slides = 6
 	floor_constant_speed = true
@@ -144,12 +158,15 @@ func _init_audio() -> void:
 	_footstep_audio.volume_db = -18.0
 	_fabric_audio.volume_db = -14.0
 	_breathing_audio.volume_db = -20.0
+	_reverb_audio = AudioStreamPlayer.new()
+	_reverb_audio.volume_db = -14.0
 	add_child(_gun_audio)
 	add_child(_call_audio)
 	add_child(_click_audio)
 	add_child(_footstep_audio)
 	add_child(_fabric_audio)
 	add_child(_breathing_audio)
+	add_child(_reverb_audio)
 
 	_rifle_sound = AudioSynth.gunshot(true)
 	_shotgun_sound = AudioSynth.gunshot(false)
@@ -161,11 +178,15 @@ func _init_audio() -> void:
 	_foot_wood_sound = AudioSynth.footstep_wood()
 
 func _input(event: InputEvent) -> void:
-	# If Harvest Card, Huntermate Map, or Pause Menu is visible, let UI process mouse/keys freely!
-	var hs = get_tree().root.find_child("HarvestScreen", true, false)
-	var hm = get_tree().root.find_child("HuntermateMap", true, false)
-	var hud = get_tree().root.find_child("HuntingHUD", true, false)
-	if (hs and hs.visible) or (hm and hm.visible) or (hud and hud.is_paused):
+	# F10 or Backquote (`) leaves even while a card is open.
+	if event is InputEventKey and event.pressed and (event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT):
+		_return_to_menu()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Harvest, map, pause, pie, photo, and downed all own the cursor.
+	# ESC is handled by the HUD, which stays active while the tree is paused.
+	if is_downed or is_photo_mode or _controls_locked():
 		return
 
 	# Click window to recapture mouse if lost
@@ -174,19 +195,6 @@ func _input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			get_viewport().set_input_as_handled()
 			return
-
-	# ESC key toggles Pause & Navigation Menu
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_toggle_pause_menu()
-		get_viewport().set_input_as_handled()
-		return
-
-	# F10 or Backquote (`) quick shortcut: return immediately to Main Menu
-	if event is InputEventKey and event.pressed and (event.keycode == KEY_F10 or event.keycode == KEY_QUOTELEFT):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
-		get_viewport().set_input_as_handled()
-		return
 
 	# Mouse look handling
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -367,11 +375,22 @@ func _deploy_reed_blind() -> void:
 
 func _command_dog_toggle() -> void:
 	var dog = get_tree().root.find_child("HuntingDog", true, false) as RetrieverDog
-	if dog:
-		if dog.current_command == RetrieverDog.DogCommand.HEEL_FOLLOW:
-			dog.order_sit()
-		else:
-			dog.order_heel()
+	if dog == null:
+		return
+	var bird := _nearest_water_retrieve()
+	if bird:
+		dog.order_fetch(bird)
+		_push_hud_note("DOG: retrieving the downed bird")
+		return
+	if dog.current_command == RetrieverDog.DogCommand.HEEL_FOLLOW and _blood_nearby():
+		dog.order_track()
+		_push_hud_note("DOG: on the blood trail")
+	elif dog.current_command == RetrieverDog.DogCommand.HEEL_FOLLOW or dog.current_command == RetrieverDog.DogCommand.TRACK_BLOOD:
+		dog.order_sit()
+		_push_hud_note("DOG: stay")
+	else:
+		dog.order_heel()
+		_push_hud_note("DOG: heel")
 
 func _use_caller(call_type: String, sound: AudioStreamWAV) -> void:
 	_call_audio.stream = sound
@@ -395,15 +414,11 @@ func _fire_rifle() -> void:
 		_spawn_muzzle_flash(rifle_model, Vector3(0, 0.05, -0.75))
 		_eject_shell_casing(rifle_model.global_position + Vector3(0.08, 0.05, -0.15), camera.global_transform.basis)
 		
-	# Gunshot acoustic reflection reverb
+	# Gunshot acoustic reflection reverb (one player, reused so web doesn't leak nodes)
 	var dist_water = max(10.0, abs(origin.y - Terrain.WATER_LEVEL))
-	var reverb_sound = AudioSynth.gunshot_reverb(dist_water, 120.0)
-	var rev_player = AudioStreamPlayer.new()
-	rev_player.stream = reverb_sound
-	rev_player.volume_db = -14.0
-	add_child(rev_player)
-	rev_player.play()
-	rev_player.finished.connect(rev_player.queue_free)
+	if _reverb_audio:
+		_reverb_audio.stream = AudioSynth.gunshot_reverb(dist_water, 120.0)
+		_reverb_audio.play()
 	
 	# Broadcast to EventBus
 	var eb = get_node_or_null("/root/EventBus")
@@ -438,12 +453,16 @@ func _fire_rifle() -> void:
 	var target_point = traj.hit_pos if traj.hit else (origin + dir * 250.0)
 	_spawn_bullet_trail(origin + dir * 0.8, target_point)
 	
-	if traj.hit and traj.collider:
-		if traj.collider.has_method("take_hit"):
-			var organ = traj.collider.take_hit(origin, dir, ".308 Bolt-Action Rifle", false)
-			print("[Target Hit] Struck in: %s (Flight Time: %.3fs, Dist: %.1fm)" % [
-				organ, traj.flight_time, origin.distance_to(traj.hit_pos)
-			])
+	if traj.hit and traj.collider and traj.collider.has_method("take_hit"):
+		var organ = traj.collider.take_hit(origin, dir, ".308 Bolt-Action Rifle", false)
+		var dist_m := origin.distance_to(traj.hit_pos)
+		var fatal := traj.collider is Animal and (traj.collider as Animal).state == Animal.State.DEAD
+		print("[Target Hit] Struck in: %s (Flight Time: %.3fs, Dist: %.1fm)" % [
+			organ, traj.flight_time, dist_m
+		])
+		_emit_shot(str(organ), dist_m, fatal)
+	else:
+		_emit_shot("", 0.0, false)
 
 func _fire_shotgun() -> void:
 	if roper_ammo_loaded <= 0:
@@ -476,6 +495,10 @@ func _fire_shotgun() -> void:
 		world.broadcast_gunshot(global_position)
 
 	var space = get_world_3d().direct_space_state
+	var hit_organ := ""
+	var hit_dist := 0.0
+	var hit_fatal := false
+	var any_hit := false
 
 	match current_shotgun_ammo:
 		ShotgunAmmo.BIRDSHOT:
@@ -488,7 +511,10 @@ func _fire_shotgun() -> void:
 				var query = PhysicsRayQueryParameters3D.create(origin, origin + (p_dir * 80.0), 2)
 				var hit = space.intersect_ray(query)
 				if hit and hit.collider and hit.collider.has_method("take_hit"):
-					hit.collider.take_hit(origin, p_dir, "Roper 12GA (Birdshot)", true)
+					hit_organ = str(hit.collider.take_hit(origin, p_dir, "Roper 12GA (Birdshot)", true))
+					hit_dist = origin.distance_to(hit.position)
+					hit_fatal = hit.collider is Animal and (hit.collider as Animal).state == Animal.State.DEAD
+					any_hit = true
 					break
 
 		ShotgunAmmo.BUCKSHOT:
@@ -501,7 +527,10 @@ func _fire_shotgun() -> void:
 				var query = PhysicsRayQueryParameters3D.create(origin, origin + (p_dir * 95.0), 2)
 				var hit = space.intersect_ray(query)
 				if hit and hit.collider and hit.collider.has_method("take_hit"):
-					hit.collider.take_hit(origin, p_dir, "Roper 12GA (00 Buckshot)", false)
+					hit_organ = str(hit.collider.take_hit(origin, p_dir, "Roper 12GA (00 Buckshot)", false))
+					hit_dist = origin.distance_to(hit.position)
+					hit_fatal = hit.collider is Animal and (hit.collider as Animal).state == Animal.State.DEAD
+					any_hit = true
 					break
 
 		ShotgunAmmo.SLUG:
@@ -509,10 +538,18 @@ func _fire_shotgun() -> void:
 			var query = PhysicsRayQueryParameters3D.create(origin, origin + (fwd * 180.0), 2)
 			var hit = space.intersect_ray(query)
 			if hit and hit.collider and hit.collider.has_method("take_hit"):
-				var organ = hit.collider.take_hit(origin, fwd, "Roper 12GA (Rifled Slug)", false)
-				print("[Target Hit] Slug struck in: %s" % organ)
+				hit_organ = str(hit.collider.take_hit(origin, fwd, "Roper 12GA (Rifled Slug)", false))
+				hit_dist = origin.distance_to(hit.position)
+				hit_fatal = hit.collider is Animal and (hit.collider as Animal).state == Animal.State.DEAD
+				any_hit = true
+				print("[Target Hit] Slug struck in: %s" % hit_organ)
 			var slug_target = hit.position if hit else (origin + fwd * 180.0)
 			_spawn_bullet_trail(origin + fwd * 0.8, slug_target)
+
+	if any_hit:
+		_emit_shot(hit_organ, hit_dist, hit_fatal)
+	else:
+		_emit_shot("", 0.0, false)
 
 func _trigger_gunshot_shake() -> void:
 	_shake_pos = Vector3(randf_range(-0.04, 0.04), 0.15, randf_range(0.04, 0.07))
@@ -608,8 +645,16 @@ func _spawn_bullet_trail(from_pos: Vector3, to_pos: Vector3) -> void:
 	tween.tween_callback(trail.queue_free)
 
 func _physics_process(delta: float) -> void:
-	if is_photo_mode:
+	if is_photo_mode or is_downed:
 		velocity = Vector3.ZERO
+		return
+
+	if _controls_locked():
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= 9.8 * delta
+			move_and_slide()
 		return
 
 	if _recoil_kick > 0.0:
@@ -625,6 +670,16 @@ func _physics_process(delta: float) -> void:
 
 	if is_in_kayak:
 		velocity = Vector3.ZERO
+		if active_kayak:
+			var moved := active_kayak.global_position.distance_to(_last_kayak_pos)
+			if moved < 8.0:
+				_kayak_travel += moved
+			_last_kayak_pos = active_kayak.global_position
+			if not _kayak_mission_sent and _kayak_travel >= kayak_mission_meters:
+				_kayak_mission_sent = true
+				var gs = get_node_or_null("/root/GameState")
+				if gs:
+					gs.complete_mission("kayak")
 		return
 
 	if not is_on_floor():
@@ -675,11 +730,11 @@ func _physics_process(delta: float) -> void:
 
 	var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	if direction != Vector3.ZERO:
-		velocity.x = direction.x * current_speed
-		velocity.z = direction.z * current_speed
+		velocity.x = move_toward(velocity.x, direction.x * current_speed, ground_accel * delta)
+		velocity.z = move_toward(velocity.z, direction.z * current_speed, ground_accel * delta)
 	else:
-		velocity.x = move_toward(velocity.x, 0, current_speed)
-		velocity.z = move_toward(velocity.z, 0, current_speed)
+		velocity.x = move_toward(velocity.x, 0, ground_friction * delta)
+		velocity.z = move_toward(velocity.z, 0, ground_friction * delta)
 
 	# Cap extreme physics impulses from depenetration or geometry
 	if velocity.length() > 30.0:
@@ -719,6 +774,7 @@ func _physics_process(delta: float) -> void:
 	camera.position.x = _shake_pos.x
 	camera.position.z = _shake_pos.z
 	camera.rotation.y = _shake_rot_y
+	camera.rotation.z = move_toward(camera.rotation.z, 0.0, delta * 0.9)
 
 	_handle_footstep_audio(delta, move_spd)
 	_update_huntermate_tracking()
@@ -743,7 +799,10 @@ func _handle_footstep_audio(delta: float, speed: float) -> void:
 		elif randf() < 0.2:
 			surf_type = 0 # DRY_LEAVES
 			
-		_footstep_audio.stream = AudioSynth.footstep_surface(surf_type, stance_mult)
+		var step_key := "%d:%.1f" % [surf_type, snapped(stance_mult, 0.1)]
+		if not _step_cache.has(step_key):
+			_step_cache[step_key] = AudioSynth.footstep_surface(surf_type, stance_mult)
+		_footstep_audio.stream = _step_cache[step_key]
 		_footstep_audio.play()
 		
 		var eb = get_node_or_null("/root/EventBus")
@@ -860,49 +919,40 @@ func _try_interact() -> void:
 		for a in world.animals:
 			if is_instance_valid(a) and a.state == Animal.State.DEAD and not a.harvested:
 				if global_position.distance_to(a.global_position) < 4.5:
-					a.harvested = true
-					var harvest_screen = get_tree().root.find_child("HarvestScreen", true, false)
-					if harvest_screen:
-						var record = a.get_harvest_record()
-						harvest_screen.show_harvest(record, a)
-						var gs = get_node_or_null("/root/GameState")
-						if gs:
-							gs.add_trophy(record)
+					claim_harvest(a)
 					return
 
 	if result:
 		if result.collider is KayakController:
 			_enter_kayak(result.collider)
 		elif result.collider.has_method("get_harvest_record"):
-			var animal = result.collider
-			if animal.state == Animal.State.DEAD and not animal.harvested:
-				animal.harvested = true
-				var harvest_screen = get_tree().root.find_child("HarvestScreen", true, false)
-				if harvest_screen:
-					var record = animal.get_harvest_record()
-					harvest_screen.show_harvest(record, animal)
-					var gs = get_node_or_null("/root/GameState")
-					if gs:
-						gs.add_trophy(record)
+			claim_harvest(result.collider)
 
 func take_damage(amount: float) -> void:
+	if is_downed:
+		return
 	health = max(0.0, health - amount)
 	_recoil_kick = 0.35
 	_click_audio.stream = _click_sound
 	_click_audio.play()
-	# Camera shake on impact
-	camera.rotation.z = deg_to_rad(randf_range(-12.0, 12.0))
+	# Camera roll settles back in _physics_process.
+	camera.rotation.z = deg_to_rad(randf_range(-8.0, 8.0))
 	print("[HUNTER INJURED] Took %.0f damage from predator attack! HP: %.0f/%.0f" % [amount, health, MAX_HEALTH])
 	if health <= 0.0:
+		is_downed = true
+		velocity = Vector3.ZERO
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		print("[DEATH] The hunter succumbed to the predator of the night!")
+		var eb = get_node_or_null("/root/EventBus")
+		if eb and eb.has_signal("player_downed"):
+			eb.player_downed.emit()
 
 func _enter_kayak(kayak: KayakController) -> void:
 	is_in_kayak = true
 	active_kayak = kayak
+	_last_kayak_pos = kayak.global_position
+	_kayak_travel = 0.0
 	kayak.set_physics_process(true)
-	var gs = get_node_or_null("/root/GameState")
-	if gs:
-		gs.complete_mission("kayak")
 	print("[Vehicle] Boarded hunting kayak. Use W/S/A/D to paddle. Press E to exit.")
 
 func _exit_kayak() -> void:
@@ -912,3 +962,93 @@ func _exit_kayak() -> void:
 	global_position += active_kayak.global_transform.basis.x * 2.0
 	active_kayak = null
 	print("[Vehicle] Exited kayak.")
+
+func _apply_saved_sensitivity() -> void:
+	var gs = get_node_or_null("/root/GameState")
+	if gs and gs.settings is Dictionary:
+		var mul := float(gs.settings.get("mouse_sens", 1.0))
+		mouse_sensitivity = 0.0025 * clamp(mul, 0.4, 2.0)
+
+func _return_to_menu() -> void:
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.save_game()
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func _controls_locked() -> bool:
+	if _block_harvest == null or not is_instance_valid(_block_harvest):
+		_block_harvest = get_tree().root.find_child("HarvestScreen", true, false)
+	if _block_harvest and _block_harvest.visible:
+		return true
+	if _block_map == null or not is_instance_valid(_block_map):
+		_block_map = get_tree().root.find_child("HuntermateMap", true, false)
+	if _block_map and _block_map.visible:
+		return true
+	if _block_hud == null or not is_instance_valid(_block_hud):
+		_block_hud = get_tree().root.find_child("HuntingHUD", true, false)
+	if _block_hud and bool(_block_hud.get("is_paused")):
+		return true
+	if _block_pie == null or not is_instance_valid(_block_pie):
+		_block_pie = get_tree().root.find_child("PieMenu", true, false)
+	if _block_pie and bool(_block_pie.get("is_open")):
+		return true
+	return false
+
+func _emit_shot(organ: String, distance_m: float, fatal: bool) -> void:
+	var eb = get_node_or_null("/root/EventBus")
+	if eb and eb.has_signal("shot_resolved"):
+		eb.shot_resolved.emit(organ, distance_m, fatal)
+
+func claim_harvest(animal: Node) -> void:
+	if animal == null or not is_instance_valid(animal):
+		return
+	if not animal.has_method("get_harvest_record"):
+		return
+	if bool(animal.get("harvested")):
+		return
+	if animal.get("state") != Animal.State.DEAD:
+		return
+	animal.harvested = true
+	var record = animal.get_harvest_record()
+	var harvest_screen = get_tree().root.find_child("HarvestScreen", true, false)
+	if harvest_screen:
+		harvest_screen.show_harvest(record, animal)
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.add_trophy(record)
+
+func _nearest_water_retrieve() -> Animal:
+	var world = get_parent()
+	if world == null or world.terrain == null:
+		return null
+	var best: Animal = null
+	var best_d := 45.0
+	for a in world.animals:
+		if not is_instance_valid(a) or not (a is Animal):
+			continue
+		if a.state != Animal.State.DEAD or a.harvested or a.species != "Mallard":
+			continue
+		if not world.terrain.is_water(a.global_position.x, a.global_position.z):
+			continue
+		var d := global_position.distance_to(a.global_position)
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
+
+func _blood_nearby() -> bool:
+	var world = get_parent()
+	if world == null or world.tracks == null:
+		return false
+	for b in world.tracks.blood:
+		if global_position.distance_to(b.pos) < 40.0:
+			return true
+	return false
+
+func _push_hud_note(text: String) -> void:
+	if _block_hud == null or not is_instance_valid(_block_hud):
+		_block_hud = get_tree().root.find_child("HuntingHUD", true, false)
+	if _block_hud and _block_hud.has_method("push_note"):
+		_block_hud.push_note(text)

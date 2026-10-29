@@ -152,20 +152,29 @@ func _think(delta: float) -> void:
 			_snort_player.play()
 		print("[HORROR] A blood-curdling screech echoes from the timber ridge...")
 
-	# Relentless Stalker Attack AI: Closes distance aggressively
-	if d_to_hunter < 110.0 and state != State.WOUNDED:
-		state = State.FLEE
-		flee_dir = (hunter.global_position - global_position).normalized()
-		speed = run_speed
-		_face(hunter.global_position, delta * 6.0)
-		_advance(-global_transform.basis.z, delta)
-		
-		# Lethal swipe range
-		if d_to_hunter < 3.2 and attack_cooldown <= 0.0:
-			attack_cooldown = 1.6
-			if hunter.has_method("take_damage"):
-				hunter.take_damage(35.0)
-			print("[LETHAL!] The Wendigo tore into the hunter with elongated bone claws!")
+	if hunter.get("is_downed"):
+		super._think(delta)
+		return
+
+	# Stalk in, then rush. Charging from 110 m removed the tell.
+	const stalk_range := 80.0
+	const rush_range := 18.0
+	if d_to_hunter < stalk_range and state != State.WOUNDED:
+		_face(hunter.global_position, delta * 4.0)
+		if d_to_hunter < rush_range:
+			state = State.FLEE
+			flee_dir = (hunter.global_position - global_position).normalized()
+			speed = run_speed
+			_advance(-global_transform.basis.z, delta)
+			if d_to_hunter < 3.2 and attack_cooldown <= 0.0:
+				attack_cooldown = 1.6
+				if hunter.has_method("take_damage"):
+					hunter.take_damage(35.0)
+				print("[LETHAL!] The Wendigo tore into the hunter with elongated bone claws!")
+		else:
+			state = State.ALERT
+			speed = walk_speed
+			_advance(-global_transform.basis.z, delta)
 	else:
 		super._think(delta)
 

@@ -27,6 +27,11 @@ func _ready() -> void:
 	visible = false
 
 func _input(event: InputEvent) -> void:
+	if get_tree().paused:
+		return
+	var hunter := get_tree().root.find_child("Hunter", true, false)
+	if hunter and bool(hunter.get("is_downed")):
+		return
 	# Hold Q or TAB to open radial menu
 	if event is InputEventKey:
 		if event.keycode == KEY_Q or event.keycode == KEY_TAB:
