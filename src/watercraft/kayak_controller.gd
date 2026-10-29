@@ -27,12 +27,19 @@ extends RigidBody3D
 var _last_stroke_time: float = -10.0
 var _last_stroke_side: int = 0 # -1 = Left, 1 = Right, 0 = Initial
 var _current_stealth_noise: float = 0.0
+var _paddle_audio: AudioStreamPlayer3D
 
 func _ready() -> void:
 	# Configure RigidBody properties for stable watercraft dynamics
 	linear_damp = water_drag_linear
 	angular_damp = water_drag_angular
 	can_sleep = false
+	_paddle_audio = AudioStreamPlayer3D.new()
+	_paddle_audio.bus = AudioDirector.BUS_SFX
+	_paddle_audio.unit_size = 5.0
+	_paddle_audio.max_distance = 36.0
+	_paddle_audio.volume_db = -8.0
+	add_child(_paddle_audio)
 
 func _physics_process(delta: float) -> void:
 	_apply_buoyancy(delta)
@@ -96,6 +103,18 @@ func _execute_paddle_stroke(side: int, power_multiplier: float) -> void:
 
 	# Broadcast noise to sensory system for surrounding waterfowl/deer
 	_emit_stealth_noise(paddle_splash_noise_radius)
+	_play_paddle(power_multiplier)
+
+func _play_paddle(power_multiplier: float) -> void:
+	if _paddle_audio == null:
+		return
+	var hunter = get_tree().root.find_child("Hunter", true, false)
+	if hunter == null or not hunter.is_in_kayak or hunter.active_kayak != self:
+		return
+	_paddle_audio.stream = AudioSynth.take_paddle()
+	_paddle_audio.pitch_scale = AudioSynth.vary_pitch(0.92, 1.08)
+	_paddle_audio.volume_db = -8.0 + linear_to_db(maxf(absf(power_multiplier), 0.4))
+	_paddle_audio.play()
 
 func _emit_stealth_noise(radius: float) -> void:
 	_current_stealth_noise = max(_current_stealth_noise, radius)

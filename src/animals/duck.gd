@@ -32,6 +32,7 @@ func _setup_species() -> void:
 func setup(w: Node, pos: Vector3) -> void:
 	super.setup(w, pos)
 	_quack = AudioStreamPlayer3D.new()
+	_quack.bus = AudioDirector.BUS_SFX
 	_quack.stream = AudioSynth.quack()
 	_quack.unit_size = 2.5
 	_quack.max_distance = 35.0

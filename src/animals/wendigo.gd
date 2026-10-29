@@ -146,7 +146,8 @@ func _think(delta: float) -> void:
 	if screech_timer <= 0.0:
 		screech_timer = randf_range(12.0, 25.0)
 		if _snort_player:
-			_snort_player.stream = AudioSynth.wendigo_screech()
+			_snort_player.stream = AudioSynth.take_wendigo_screech()
+			_snort_player.pitch_scale = AudioSynth.vary_pitch(0.96, 1.05)
 			_snort_player.max_distance = 300.0
 			_snort_player.unit_size = 20.0
 			_snort_player.play()
