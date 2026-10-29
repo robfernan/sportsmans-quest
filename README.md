@@ -191,7 +191,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 
 | What | Bytes |
 | --- | ---: |
-| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (59 files) | 317,221 |
+| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (59 files) | 335,608 |
 | `dist/SportsmansQuest.pck` (Godot 4.7.2 pack in the repo) | 1,826,512 |
 | `dist/SportsmansQuest_Compressed.exe` | 70,573,064 |
 | `media_banner.jpg` / `media_screenshot.png` | 894,679 / 776,124 |
@@ -201,7 +201,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 | v1.0.0 `SportsmansQuest_Web.zip` | 18,599,295 |
 | `godot.wasm` inside the web zip | 39,514,754 |
 
-The 317,221 byte figure is the sum of those 59 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
+The 335,608 byte figure is the sum of those 59 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
 
 Pack versions are the major, minor, and patch integers in the `GDPC` header (format version 4, then `4, 7, 2` for the repo pack and `4, 2, 2` for the release pack). The repo pack's path table includes `res://media_banner.jpg` and `res://media_screenshot.png` plus compiled scripts. Release byte counts are the zip central directory (`unzip -l` on the v1.0.0 assets).
 
