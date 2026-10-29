@@ -1,125 +1,129 @@
-# 🌲 Sportsman's Quest: Whispering Pines Reserve
+# Sportsman's Quest
 
-![Sportsman's Quest Banner](media_banner.jpg)
+**A procedural 3D stalking sim on Whispering Pines: stay downwind, stay quiet, and walk the harvest back to the lodge.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Engine: Godot 4](https://img.shields.io/badge/Engine-Godot%204.x-blue.svg)](https://godotengine.org)
-[![Build Size](https://img.shields.io/badge/Data%20Package-240%20KB-orange.svg)](#architecture)
-[![Status: Released](https://img.shields.io/badge/Status-Released%20on%20Itch.io-red.svg)](https://mungdaal321.itch.io/sportsman-quest)
-[![Releases](https://img.shields.io/github/v/release/robfernan/sportsmans-quest)](https://github.com/robfernan/sportsmans-quest/releases/tag/v1.0.0)
+By [Robert Fernandez](https://robertfernandez.dev) ([robfernan](https://github.com/robfernan)). Godot 4.7. Offline. One playable reserve.
 
-> **An ultra-lean, offline-first 3D stalking hunting simulation & Halloween cryptid hunt.**
-> Built as an open-source homage to retro hunting classics and the golden era of *theHunter Classic*.
+![Key art: a hunter and retriever on a moonlit shore, jack-o'-lanterns in the foreground, a stag and a tall figure among the pines](media_banner.jpg)
 
-![In-Game Gameplay Screenshot](media_screenshot.png)
+![In-engine photo mode on the lakeshore. The title bar reads Sportsman's Quest (DEBUG). Hunter and dog are block-built meshes on a noise terrain.](media_screenshot.png)
 
----
+The wide image is key art. The second image is a capture from the Godot scene.
 
-## 🎮 Play & Download
+## Play
 
-- **Itch.io Storefront**: [https://mungdaal321.itch.io/sportsman-quest](https://mungdaal321.itch.io/sportsman-quest)
-- **Windows Standalone**: `SportsmansQuest_Windows_ReadyToPlay.zip` (self-contained, no install required).
-- **Web (HTML5)**: `SportsmansQuest_Web.zip` (play directly in the browser via WebGL).
+The published build is [v1.0.0](https://github.com/robfernan/sportsmans-quest/releases/tag/v1.0.0) (28 Oct 2026). The same game is listed on [itch.io](https://mungdaal321.itch.io/sportsman-quest) as "Sportsman Quest" by MungDaal321.
 
----
+**Windows.** Download `SportsmansQuest_Windows_ReadyToPlay.zip` (91,742,442 bytes). It contains `SportsmansQuest.exe` (180,858,888 bytes) and `SportsmansQuest.pck` (4,204,144 bytes). Unzip and run `SportsmansQuest.exe`.
 
-## ⚡ Core Architecture: Procedural Efficiency
+**Browser.** Download `SportsmansQuest_Web.zip` (18,599,295 bytes). Unzip it and serve the folder. `index.html` loads `godot.js`, `godot.wasm`, and `godot.pck` from that directory.
 
-Commercial hunting games (*theHunter: Call of the Wild*, *Way of the Hunter*) require **30 GB to 60 GB** of high-resolution photogrammetry textures, rigged meshes, and baked audio. 
-
-**Sportsman's Quest** takes the opposite design philosophy: **100% procedural generation with zero external textures, zero .gltf files, and zero pre-recorded audio files**.
-
-| Subsystem | Traditional Games | Sportsman's Quest |
-| :--- | :--- | :--- |
-| **Terrain** | Multi-GB 4K normal/albedo textures | Multi-frequency analytical sine/hash noise shader ([`terrain.gdshader`](src/world/terrain.gdshader)) |
-| **Vegetation** | High-poly tree models + LOD meshes | Procedural conifer geometry with wind-vertex sway shaders instanced on GPU via `MultiMesh` |
-| **Audio** | Uncompressed .wav / .ogg sound banks | 100% synthetic PCM sound generation in real-time math ([`audio_synth.gd`](src/core/audio_synth.gd)) |
-| **Wildlife** | Gigabytes of rigged skinned meshes | Algorithmic hierarchical jointed box/capsule models generated dynamically |
-| **Game Data Package** | 30+ GB | **~240 KB game data** (`dist/SportsmansQuest.pck`) |
-
----
-
-## 🎯 Gameplay Features
-
-### 1. Realistic Stalking & Ballistics
-- **Ballistics Curve**: Real-time bullet drop, gravity, and lateral crosswind drift.
-- **Rifle Scope Elevation Zeroing**: Toggle zero settings between **100m**, **200m**, and **300m** (`F` key).
-- **Roper Revolving Shotgun**: Historic 1866 cylinder shotgun holding 4 rounds with on-the-fly ammo switching between **Birdshot**, **00 Buckshot**, and **Rifled Slugs**.
-
-### 2. Sensory Wildlife Simulation
-- **Prey Senses**: Whitetail deer herds track the player's line of sight, noise output (sprint 75m, walk 28m, crouch 9m, prone 2.5m), and downwind scent plume.
-- **Wind Detection**: Puff talcum powder (`P` key) to visualize wind vector and current drift.
-- **Waterfowl Systems**: Deploy floating mallard decoys (`G` key) and pitch shoreline reed blinds (`B` key).
-
-### 3. Loyal Hunting Companion (Golden Retriever)
-- Command wheel (`K` key):
-  - **Heel**: Follows close behind without spooking game.
-  - **Stay**: Sits and waits at blinds or stands.
-  - **Blood Tracking**: Leads you directly to wounded animal harvest locations.
-  - **Water Retrieve**: Swims into lake waters to fetch downed waterfowl.
-
-### 4. Walkable 3D Trophy Lodge & Photo Mode
-- **Taxidermy Mounts**: Walk inside your rustic cedar cabin to inspect full 3D wall mounts for Whitetail Deer (with dynamic antler racks sized to Boone & Crockett score), Foxes, Ducks, and Cryptid beasts.
-- **Ground Photo Poses**: Pose directly on the turf beside fallen game (`Ground Kneel`, `Ground Lounge`, `Victory Thumbs-up`) and admire your framed field photos on the lodge walls.
-
-### 5. 🎃 Halloween Special Event
-- **Spectral Ghost Buck**: Mythical 14-point translucent stag leaving ethereal tracks (215+ B&C score).
-- **Werewolf Apex Predator**: Aggressive beast stalking the pine timber edge that rushes the player with savage claw strikes (25 damage).
-- **Wendigo Horror**: 3-meter tall gaunt demonic entity with deer skull head, decaying ribs, and piercing screeches (35 damage).
-
----
-
-## ⌨️ Controls Reference
-
-| Key | Action |
-| :--- | :--- |
-| **WASD** | Walk / Stalk / Paddle Kayak |
-| **Shift** | Sprint (Increases noise radius to 75m) |
-| **Right Click** | Aim Down Scope / Binoculars |
-| **Left Click** | Fire Weapon / Deploy Call |
-| **C / Ctrl** | Cycle Stance (Stand $\leftrightarrow$ Crouch $\leftrightarrow$ Prone) |
-| **1 – 6** | Quick-Equip: Rifle, Shotgun, Binos, Deer Call, Duck Call, Wind Powder |
-| **F** | Adjust Scope Zero (100m $\to$ 200m $\to$ 300m) |
-| **M** | Topographic GPS Huntermate Map & Compass |
-| **P** | Puff Wind Detection Powder |
-| **G / B** | Deploy Duck Decoy / Pitch Reed Blind |
-| **K** | Companion Dog Command Wheel |
-| **E** | Interact (Board Kayak, Claim Fallen Trophy) |
-
----
-
-## 🛠️ Building & Exporting
-
-### Prerequisites
-- [Godot Engine v4.x (Standard 64-bit)](https://godotengine.org)
-
-### Build Commands
 ```bash
-# 1. Run headless test
-godot --headless --path . res://scenes/main.tscn --quit-after 3
-
-# 2. Export Ultra-Lite PCK (< 250 KB)
-godot --headless --path . --export-pack "Windows Desktop (Ultra-Lite)" "dist/SportsmansQuest.pck"
-
-# 3. Export Web HTML5 Bundle
-godot --headless --path . --export-pack "Web" "dist/web/SportsmansQuest.pck"
+unzip SportsmansQuest_Web.zip -d sportsmans-quest-web
+cd sportsmans-quest-web
+python -m http.server 8080
 ```
 
----
+Open `http://localhost:8080`. The pack inside both release zips is a Godot **4.2.2** `GDPC` file. This repository targets Godot **4.7**.
 
-## 📜 Changelog
+**From source.** Install [Godot 4.7](https://godotengine.org/download/) (the pack in `dist/` was exported with 4.7.2) and run:
 
-### v1.2 — Halloween Production Polish & Web Optimization
-- **Web Rendering Optimization:** Unified procedural MultiMesh vegetation system down from ~450 draw calls to 13 draw calls; reduced tree colliders to 45 solid trunks near paths for butter-smooth 60+ FPS in all web browsers.
-- **Physics & Ground Safety Clamping:** Hardened character ground-height clamping, boundary enforcement within the 600m reserve, and velocity limiting to eliminate falling through terrain or map boundaries.
-- **Articulated 3D Trophy Photo Rig:** Articulated two-segment knee and elbow joints for realistic photo poses (Ground Lounge, Ground Kneel, Hero Stand, Thumbs-Up, Gun On Shoulder) with proper turf-aligned elevation.
-- **Dead Animal Collision Safe-Disable:** Animal collision shape is immediately disabled upon harvesting/death to eliminate physics depenetration ejection.
-- **Localized Wildlife Audio:** Fixed bird audio by strictly localizing waterfowl quacks to within 35 meters, removed aim-breathing noise, and added silent circling Halloween ravens in the sky.
-- **Vast Wildlife Population:** Expanded reserve fauna to 32 Whitetail Deer (6 herds + 8 trophy bucks), 14 roaming Red Foxes, 14 lake Mallards, and 25 glowing Jack-O'-Lanterns with flickering candle light.
-- **Halloween Cryptid Night Hunt Mode:** Deep midnight sky with blood-violet horizon, moonlight directional lighting, drifting valley fog, and relentless cryptids (Wendigo, Werewolf, Ghost Buck).
-- **Web UX Navigation:** Integrated on-screen Fullscreen and Menu buttons directly into the HTML5 canvas overlay and in-game HUD.
+```bash
+godot --path .
+```
 
----
+The main scene is `scenes/main_menu.tscn`.
 
-## 📜 License
-Distributed under the **MIT License**. Free and open source for everyone.
+| Menu entry | What it does |
+| --- | --- |
+| Day Hunt Expedition | Loads `scenes/main.tscn` at dawn (06:00). |
+| Night Hunt | Same scene, clock set to 10:30 PM, with two extra cryptids. |
+| Trophy Lodge | Loads `scenes/trophy_lodge.tscn`. |
+| Reserve, Settings | Rewrite the subtitle line. |
+| Quit | Closes the game. |
+
+`dist/SportsmansQuest_Compressed.exe` (70,573,064 bytes, Windows PE32+ x86-64) sits next to `dist/SportsmansQuest.pck`. `dist/launch_game.ps1` starts `SportsmansQuest.exe`, and `.gitignore` excludes that filename. Use the release zip or the Godot editor for a known-good launch.
+
+The Windows export preset still records product version `0.2.0`. The git tag is `v1.0.0`.
+
+## On the reserve
+
+Whispering Pines is a 600 m noise terrain and a lake (`Terrain.SIZE` in `src/world/terrain.gd`). Pines, animals, and gunshots are built in code. A search of this tree finds no `.gltf`, `.glb`, `.ogg`, `.wav`, or `.mp3` files. The only raster images are the two pictures above.
+
+You hunt in first person. Deer, foxes, and ducks react to scent on the wind, to footstep noise, and to line of sight. Noise radii on the hunter are sprint 75 m, walk 28 m, crouch 9 m, and prone 2.5 m. Rifle shots go through `Ballistics.simulate_shot`: drag, drop, crosswind, and a zero of 100 m, 200 m, or 300 m. The Roper shotgun is a 4-round cylinder. `T` cycles birdshot, 00 buck, and rifled slug. `R` reloads.
+
+`G` places a floating mallard decoy. `B` pitches a reed blind. `E` boards the kayak, climbs a stand, and harvests a downed animal. Hold `Q` or `Tab` for a gear wheel with the rifle, shotgun, binoculars, deer call, and duck call. Wind powder is `6` or `P`, then left click.
+
+`K` switches the retriever between heel and stay. Blood tracking and a water retrieve are implemented on `RetrieverDog`. `hunter_controller.gd` never calls `order_fetch`.
+
+A harvest opens a third-person photo pose. Trophies are written to `user://sportsmans_quest_save.json`.
+
+Spawn lists in `src/world/game_world.gd` place 32 whitetail (six herds of four, plus eight solitary bucks), 14 red foxes, 14 mallards, and 25 jack-o'-lanterns. A ghost buck, a werewolf, and a wendigo are present on day and night hunts. Night Hunt adds a second ghost buck and a second werewolf.
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| `W` `A` `S` `D` | Walk. In the kayak, `W` / `S` paddle and `A` / `D` steer. |
+| `Shift` | Sprint |
+| `C` | Crouch from stand or prone. Stand if already crouched. |
+| `Z` | Prone from stand or crouch. Stand if already prone. |
+| `Space` | Jump while standing on the ground |
+| Mouse | Look |
+| Right click | Aim |
+| Left click | Fire, call, or puff powder, whichever is in hand |
+| `1`–`5` | Rifle, shotgun, binoculars, deer call, duck call |
+| `6` or `P` | Equip wind powder |
+| `T` / `R` | Cycle shotgun shell / reload |
+| `F` | Rifle zero: 100 m, then 200 m, then 300 m |
+| `M` | Huntermate map |
+| `G` / `B` | Duck decoy / reed blind |
+| `K` | Dog: heel or stay |
+| `Q` or `Tab` (hold) | Gear wheel |
+| `E` | Interact |
+| `Esc` | Pause |
+| Backtick or `F10` | Return to the main menu |
+
+## Build
+
+Preset names are in `export_presets.cfg`. Godot 4.7 export templates have to be installed.
+
+```bash
+godot --headless --path . --export-pack "Windows Desktop (Ultra-Lite)" dist/SportsmansQuest.pck
+
+godot --headless --path . --export-release "Windows Desktop (Ultra-Lite)" dist/SportsmansQuest.exe
+
+godot --headless --path . res://scenes/main.tscn --quit-after 3
+```
+
+The last line is a short smoke run of the reserve scene. The Web preset is named `Web` and writes `dist/web/index.html`. Its `custom_template/release` value points at `C:\Users\User\AppData\Roaming\Godot\export_templates\4.7.2.stable\...` on the author's PC. Point that field at your own web export template before a web export.
+
+`tools/build_web.py` and `tools/package_windows.py` hardcode that same project path. The v1.0.0 web zip is a stock Godot web export (`index.html`, `godot.js`, `godot.wasm`, `godot.pck`). The Windows zip is `SportsmansQuest.exe` plus `SportsmansQuest.pck`.
+
+## Size
+
+These are file sizes, counted from this tree and from the v1.0.0 release archives.
+
+| What | Bytes |
+| --- | ---: |
+| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (57 files) | 289,695 |
+| `dist/SportsmansQuest.pck` (Godot 4.7.2 pack in the repo) | 1,826,512 |
+| `dist/SportsmansQuest_Compressed.exe` | 70,573,064 |
+| `media_banner.jpg` / `media_screenshot.png` | 894,679 / 776,124 |
+| v1.0.0 `SportsmansQuest_Windows_ReadyToPlay.zip` | 91,742,442 |
+| v1.0.0 `SportsmansQuest.exe` inside that zip | 180,858,888 |
+| v1.0.0 `SportsmansQuest.pck` inside that zip (Godot 4.2.2) | 4,204,144 |
+| v1.0.0 `SportsmansQuest_Web.zip` | 18,599,295 |
+| `godot.wasm` inside the web zip | 39,514,754 |
+
+The 289,695 byte figure is the sum of those 57 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
+
+Pack versions are the major, minor, and patch integers in the `GDPC` header (format version 4, then `4, 7, 2` for the repo pack and `4, 2, 2` for the release pack). The repo pack's path table includes `res://media_banner.jpg` and `res://media_screenshot.png` plus compiled scripts. Release byte counts are the zip central directory (`unzip -l` on the v1.0.0 assets).
+
+## Star
+
+If you want this reserve to keep growing, star [robfernan/sportsmans-quest](https://github.com/robfernan/sportsmans-quest).
+
+## License
+
+`export_presets.cfg` and `SPORTSMANS_QUEST_OUTLINE.md` name the MIT License. This repository has no `LICENSE` file.
