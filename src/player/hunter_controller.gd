@@ -66,7 +66,6 @@ var _fabric_audio: AudioStreamPlayer
 var _breathing_audio: AudioStreamPlayer
 var _reverb_audio: AudioStreamPlayer
 var _step_timer: float = 0.0
-var _step_cache: Dictionary = {}
 var _kayak_travel: float = 0.0
 var _last_kayak_pos: Vector3 = Vector3.ZERO
 var _kayak_mission_sent: bool = false
@@ -92,9 +91,6 @@ var _shotgun_sound: AudioStreamWAV
 var _grunt_sound: AudioStreamWAV
 var _quack_sound: AudioStreamWAV
 var _click_sound: AudioStreamWAV
-var _foot_turf_sound: AudioStreamWAV
-var _foot_water_sound: AudioStreamWAV
-var _foot_wood_sound: AudioStreamWAV
 
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
@@ -152,6 +148,12 @@ func _init_audio() -> void:
 	_footstep_audio = AudioStreamPlayer.new()
 	_fabric_audio = AudioStreamPlayer.new()
 	_breathing_audio = AudioStreamPlayer.new()
+	_gun_audio.bus = AudioDirector.BUS_SFX
+	_call_audio.bus = AudioDirector.BUS_SFX
+	_click_audio.bus = AudioDirector.BUS_UI
+	_footstep_audio.bus = AudioDirector.BUS_SFX
+	_fabric_audio.bus = AudioDirector.BUS_SFX
+	_breathing_audio.bus = AudioDirector.BUS_SFX
 	_gun_audio.volume_db = -10.0
 	_call_audio.volume_db = -8.0
 	_click_audio.volume_db = -12.0
@@ -159,6 +161,7 @@ func _init_audio() -> void:
 	_fabric_audio.volume_db = -14.0
 	_breathing_audio.volume_db = -20.0
 	_reverb_audio = AudioStreamPlayer.new()
+	_reverb_audio.bus = AudioDirector.BUS_SFX
 	_reverb_audio.volume_db = -14.0
 	add_child(_gun_audio)
 	add_child(_call_audio)
@@ -173,9 +176,6 @@ func _init_audio() -> void:
 	_grunt_sound = AudioSynth.grunt_call()
 	_quack_sound = AudioSynth.quack()
 	_click_sound = AudioSynth.click()
-	_foot_turf_sound = AudioSynth.footstep_turf()
-	_foot_water_sound = AudioSynth.footstep_water()
-	_foot_wood_sound = AudioSynth.footstep_wood()
 
 func _input(event: InputEvent) -> void:
 	# F10 or Backquote (`) leaves even while a card is open.
@@ -417,7 +417,8 @@ func _fire_rifle() -> void:
 	# Gunshot acoustic reflection reverb (one player, reused so web doesn't leak nodes)
 	var dist_water = max(10.0, abs(origin.y - Terrain.WATER_LEVEL))
 	if _reverb_audio:
-		_reverb_audio.stream = AudioSynth.gunshot_reverb(dist_water, 120.0)
+		_reverb_audio.stream = AudioSynth.take_gunshot_reverb(dist_water, 120.0)
+		_reverb_audio.pitch_scale = AudioSynth.vary_pitch(0.97, 1.03)
 		_reverb_audio.play()
 	
 	# Broadcast to EventBus
@@ -799,10 +800,9 @@ func _handle_footstep_audio(delta: float, speed: float) -> void:
 		elif randf() < 0.2:
 			surf_type = 0 # DRY_LEAVES
 			
-		var step_key := "%d:%.1f" % [surf_type, snapped(stance_mult, 0.1)]
-		if not _step_cache.has(step_key):
-			_step_cache[step_key] = AudioSynth.footstep_surface(surf_type, stance_mult)
-		_footstep_audio.stream = _step_cache[step_key]
+		_footstep_audio.stream = AudioSynth.take_footstep(surf_type)
+		_footstep_audio.pitch_scale = AudioSynth.vary_pitch(0.94, 1.06)
+		_footstep_audio.volume_db = -18.0 + linear_to_db(maxf(stance_mult, 0.05))
 		_footstep_audio.play()
 		
 		var eb = get_node_or_null("/root/EventBus")
@@ -876,7 +876,8 @@ func _adjust_stance_height() -> void:
 	_head_target_y = target_y
 	
 	if _fabric_audio:
-		_fabric_audio.stream = AudioSynth.fabric_shift()
+		_fabric_audio.stream = AudioSynth.take_fabric()
+		_fabric_audio.pitch_scale = AudioSynth.vary_pitch(0.94, 1.06)
 		_fabric_audio.play()
 		
 	var tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

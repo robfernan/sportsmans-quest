@@ -64,6 +64,7 @@ func setup(w: Node, pos: Vector3) -> void:
 	cs.position = _collision_offset()
 	add_child(cs)
 	_snort_player = AudioStreamPlayer3D.new()
+	_snort_player.bus = AudioDirector.BUS_SFX
 	_snort_player.stream = AudioSynth.snort()
 	_snort_player.unit_size = 12.0
 	add_child(_snort_player)

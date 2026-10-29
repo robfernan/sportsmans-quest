@@ -2,10 +2,41 @@ class_name AudioSynth
 extends RefCounted
 
 ## Procedurally synthesized sound effects for Sportsman's Quest.
-## 100% Procedural PCM (0 KB external files, zero licensing issues).
-## Includes environmental wind, footstep surfaces, gun reverb, breathing, and cryptids.
+## 100% procedural PCM (no external samples).
+## Footsteps, fabric, rifle tails, and the wendigo screech are pooled:
+## take_*() reuses a few takes, and playback varies pitch instead of
+## rebuilding PCM on every step. Synthesis uses a private RNG so pools
+## do not advance the global random stream used by wildlife.
 
 const RATE := 22050
+
+const _FOOT_TAKES := 4
+const _FABRIC_TAKES := 3
+const _REVERB_TAKES := 2
+const _SCREECH_TAKES := 2
+const _REVERB_DISTANCES: Array[float] = [10.0, 40.0, 80.0, 140.0]
+
+static var _rng: RandomNumberGenerator
+static var _foot_pools: Dictionary = {}
+static var _fabric_pool: Array = []
+static var _reverb_pools: Dictionary = {}
+static var _screech_pool: Array = []
+
+static func _rng_ref() -> RandomNumberGenerator:
+	if _rng == null:
+		_rng = RandomNumberGenerator.new()
+		_rng.seed = 0x51A7C0DE
+	return _rng
+
+static func _rand() -> float:
+	return _rng_ref().randf()
+
+static func _rand_range(a: float, b: float) -> float:
+	return _rng_ref().randf_range(a, b)
+
+static func _pick(pool: Array) -> AudioStreamWAV:
+	return pool[_rng_ref().randi_range(0, pool.size() - 1)]
+
 
 static func _to_wav(samples: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
@@ -31,7 +62,7 @@ static func gunshot(heavy := true) -> AudioStreamWAV:
 	var lp2 := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		var noise := randf() * 2.0 - 1.0
+		var noise := _rand() * 2.0 - 1.0
 		var crack := noise * exp(-t * 60.0)
 		lp = lerp(lp, noise, 0.08)
 		var boom := lp * exp(-t * 4.0) * 2.5
@@ -52,7 +83,7 @@ static func gunshot_reverb(dist_to_water: float = 60.0, dist_to_ridge: float = 1
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		var noise := randf() * 2.0 - 1.0
+		var noise := _rand() * 2.0 - 1.0
 		lp = lerp(lp, noise, 0.04) # Low-pass filtered rumble
 		var env := exp(-t * 4.5)
 		var reflection := 0.0
@@ -74,7 +105,7 @@ static func wind_ambient(altitude_m: float = 20.0, canopy_cover: float = 0.5, is
 		
 	for i in n:
 		var t := float(i) / n
-		lp = lerp(lp, randf() * 2.0 - 1.0, cutoff_alpha)
+		lp = lerp(lp, _rand() * 2.0 - 1.0, cutoff_alpha)
 		var gust := 0.6 + 0.4 * sin(t * TAU * 2.0) * sin(t * TAU * 3.0)
 		var fade: float = min(1.0, min(t, 1.0 - t) * 20.0)
 		s[i] = lp * base_gain * gust * fade
@@ -95,8 +126,8 @@ static func footstep_surface(surface: int, stance_mult: float = 1.0) -> AudioStr
 		0: # DRY_LEAVES: High-frequency crackle 3kHz - 8kHz
 			for i in n:
 				var t := float(i) / RATE
-				var noise := randf() * 2.0 - 1.0
-				var crackle := noise if randf() < 0.35 else 0.0
+				var noise := _rand() * 2.0 - 1.0
+				var crackle := noise if _rand() < 0.35 else 0.0
 				var env := exp(-t * 55.0)
 				s[i] = crackle * env * 0.30 * stance_mult
 		1: # MUD: Low thud < 200 Hz
@@ -104,13 +135,13 @@ static func footstep_surface(surface: int, stance_mult: float = 1.0) -> AudioStr
 				var t := float(i) / RATE
 				var f: float = lerp(160.0, 55.0, t / dur)
 				phase += TAU * f / RATE
-				lp = lerp(lp, randf() * 2.0 - 1.0, 0.08)
+				lp = lerp(lp, _rand() * 2.0 - 1.0, 0.08)
 				var env := exp(-t * 40.0)
 				s[i] = (sin(phase) * 0.7 + lp * 0.3) * env * 0.40 * stance_mult
 		2: # TURF: Frosted grass/moss crunch
 			for i in n:
 				var t := float(i) / RATE
-				lp = lerp(lp, randf() * 2.0 - 1.0, 0.22)
+				lp = lerp(lp, _rand() * 2.0 - 1.0, 0.22)
 				var env := exp(-t * 42.0)
 				s[i] = lp * env * 0.28 * stance_mult
 		3: # WATER: Shallow water splash with bandpass sweep 500Hz -> 2000Hz over 60ms
@@ -118,7 +149,7 @@ static func footstep_surface(surface: int, stance_mult: float = 1.0) -> AudioStr
 				var t := float(i) / RATE
 				var f: float = lerp(500.0, 2000.0, clamp(t / 0.06, 0.0, 1.0))
 				phase += TAU * f / RATE
-				lp = lerp(lp, randf() * 2.0 - 1.0, 0.15)
+				lp = lerp(lp, _rand() * 2.0 - 1.0, 0.15)
 				var env := exp(-t * 28.0)
 				s[i] = (sin(phase) * 0.45 + lp * 0.55) * env * 0.32 * stance_mult
 		_: # WOOD: Resonant ladder/stand thud
@@ -138,7 +169,7 @@ static func fabric_shift() -> AudioStreamWAV:
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		lp = lerp(lp, randf() * 2.0 - 1.0, 0.04) # ~400Hz lowpass filter
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.04) # ~400Hz lowpass filter
 		var env := sin(clamp(t / 0.12, 0.0, 1.0) * PI)
 		s[i] = lp * env * 0.18
 	return _to_wav(s)
@@ -151,7 +182,7 @@ static func hunter_breathing(heavy := false) -> AudioStreamWAV:
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		lp = lerp(lp, randf() * 2.0 - 1.0, 0.06 if heavy else 0.03)
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.06 if heavy else 0.03)
 		# Inhale (first half) and Exhale (second half)
 		var breath_mod: float = pow(sin(t * (TAU / dur)), 2.0)
 		s[i] = lp * breath_mod * (0.16 if heavy else 0.08)
@@ -205,7 +236,7 @@ static func wendigo_screech() -> AudioStreamWAV:
 		var vibrato := sin(t * 24.0) * 20.0
 		phase += TAU * (f + vibrato) / RATE
 		var saw := fmod(phase, 1.0) * 2.0 - 1.0
-		lp = lerp(lp, randf() * 2.0 - 1.0, 0.2)
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.2)
 		var env := exp(-t * 1.2) * sin(clamp(t / 1.5, 0.0, 1.0) * PI)
 		s[i] = (saw * 0.6 + lp * 0.4) * env * 0.32
 	return _to_wav(s)
@@ -214,7 +245,7 @@ static func bird_chirp() -> AudioStreamWAV:
 	var n := int(RATE * 0.6)
 	var s := PackedFloat32Array(); s.resize(n)
 	var phase := 0.0
-	var base := randf_range(2500.0, 4200.0)
+	var base := _rand_range(2500.0, 4200.0)
 	for i in n:
 		var t := float(i) / RATE
 		var seg := fmod(t, 0.15)
@@ -234,7 +265,7 @@ static func grunt_call() -> AudioStreamWAV:
 		phase += f / RATE
 		var saw := fmod(phase, 1.0) * 2.0 - 1.0
 		var env := sin(clamp(t / 0.9, 0.0, 1.0) * PI)
-		s[i] = (saw * 0.5 + (randf() - 0.5) * 0.2) * env * 0.28
+		s[i] = (saw * 0.5 + (_rand() - 0.5) * 0.2) * env * 0.28
 	return _to_wav(s)
 
 static func quack() -> AudioStreamWAV:
@@ -257,7 +288,7 @@ static func snort() -> AudioStreamWAV:
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		lp = lerp(lp, randf() * 2.0 - 1.0, 0.3)
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.3)
 		s[i] = lp * exp(-t * 9.0) * 0.4
 	return _to_wav(s)
 
@@ -267,7 +298,7 @@ static func paddle() -> AudioStreamWAV:
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / RATE
-		lp = lerp(lp, randf() * 2.0 - 1.0, 0.12)
+		lp = lerp(lp, _rand() * 2.0 - 1.0, 0.12)
 		s[i] = lp * sin(clamp(t / 0.7, 0.0, 1.0) * PI) * 0.35
 	return _to_wav(s)
 
@@ -276,14 +307,82 @@ static func click() -> AudioStreamWAV:
 	var s := PackedFloat32Array(); s.resize(n)
 	for i in n:
 		var t := float(i) / RATE
-		s[i] = (randf() * 2.0 - 1.0) * exp(-t * 80.0) * 0.25
+		s[i] = (_rand() * 2.0 - 1.0) * exp(-t * 80.0) * 0.25
 	return _to_wav(s)
 
+
+## Hot path. Builds each surface a few times, then rotates those buffers.
+static func warm_oneshot_cache() -> void:
+	for surface in 5:
+		_ensure_foot_pool(surface)
+	_ensure_fabric_pool()
+	for dist in _REVERB_DISTANCES:
+		_ensure_reverb_pool(dist)
+	_ensure_screech_pool()
+
+static func take_footstep(surface: int) -> AudioStreamWAV:
+	return _pick(_ensure_foot_pool(surface))
+
+static func take_fabric() -> AudioStreamWAV:
+	return _pick(_ensure_fabric_pool())
+
+## Nearest prebuilt water distance. Ridge is fixed at the rifle's 120 m call.
+static func take_gunshot_reverb(dist_to_water: float, _dist_to_ridge: float = 120.0) -> AudioStreamWAV:
+	return _pick(_ensure_reverb_pool(_nearest_reverb_distance(dist_to_water)))
+
+static func take_wendigo_screech() -> AudioStreamWAV:
+	return _pick(_ensure_screech_pool())
+
+static func vary_pitch(lo: float = 0.94, hi: float = 1.06) -> float:
+	return _rand_range(lo, hi)
+
+static func _ensure_foot_pool(surface: int) -> Array:
+	if _foot_pools.has(surface):
+		return _foot_pools[surface]
+	var pool: Array = []
+	for _i in _FOOT_TAKES:
+		pool.append(footstep_surface(surface, 1.0))
+	_foot_pools[surface] = pool
+	return pool
+
+static func _ensure_fabric_pool() -> Array:
+	if not _fabric_pool.is_empty():
+		return _fabric_pool
+	for _i in _FABRIC_TAKES:
+		_fabric_pool.append(fabric_shift())
+	return _fabric_pool
+
+static func _ensure_reverb_pool(dist_to_water: float) -> Array:
+	if _reverb_pools.has(dist_to_water):
+		return _reverb_pools[dist_to_water]
+	var pool: Array = []
+	for _i in _REVERB_TAKES:
+		pool.append(gunshot_reverb(dist_to_water, 120.0))
+	_reverb_pools[dist_to_water] = pool
+	return pool
+
+static func _ensure_screech_pool() -> Array:
+	if not _screech_pool.is_empty():
+		return _screech_pool
+	for _i in _SCREECH_TAKES:
+		_screech_pool.append(wendigo_screech())
+	return _screech_pool
+
+static func _nearest_reverb_distance(dist_to_water: float) -> float:
+	var best := _REVERB_DISTANCES[0]
+	var best_delta := absf(dist_to_water - best)
+	for dist in _REVERB_DISTANCES:
+		var delta := absf(dist_to_water - dist)
+		if delta < best_delta:
+			best = dist
+			best_delta = delta
+	return best
+
 static func footstep_turf() -> AudioStreamWAV:
-	return footstep_surface(2, 1.0)
+	return take_footstep(2)
 
 static func footstep_water() -> AudioStreamWAV:
-	return footstep_surface(3, 1.0)
+	return take_footstep(3)
 
 static func footstep_wood() -> AudioStreamWAV:
-	return footstep_surface(4, 1.0)
+	return take_footstep(4)

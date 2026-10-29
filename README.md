@@ -84,6 +84,20 @@ Spawn lists in `src/world/game_world.gd` place 32 whitetail (six herds of four, 
 | `Esc` | Pause. The reserve stops. Esc again resumes. |
 | Backtick or `F10` | Return to the main menu |
 
+## Audio
+
+Cues are procedural mono PCM from `src/core/audio_synth.gd` (22050 Hz, no sample bank). `default_bus_layout.tres` is the shared Web and Desktop mix: Master at 0 dB with a limiter ceiling of −1 dBTP, Music −12 dB, Ambience −16 dB, SFX −6 dB, UI −10 dB. Wind goes to Ambience. Guns, footsteps, fabric, calls, and animals go to SFX. The shared click (reload, zero, equip, dry fire, damage) goes to UI. There is no music stem yet; that bus is reserved.
+
+`AudioDirector` keeps Master muted until the first click, key, touch, or gamepad button, then resumes the Web Audio context if the browser had blocked autoplay. Leaving the window, or hiding the browser tab, mutes Music and Ambience and restores them on return. SFX and UI stay up.
+
+Footsteps (four takes per surface), clothing rustle (three takes), rifle echo tails, and the wendigo screech are built once and reused. Stance changes footstep level, and each play nudges pitch, so those cues are not resynthesized on every step.
+
+`tools/audio_mix_check.gd` checks those bus levels, the −1 dB ceiling, and that the pools are reused:
+
+```bash
+godot --headless --path . --script res://tools/audio_mix_check.gd
+```
+
 ## Build
 
 Stay on **Godot 4.7 stable**. Do not open this project in 4.8 or later. `project.godot` feature tag is `4.7`. Presets in `export_presets.cfg` leave `custom_template/debug` and `custom_template/release` empty so Godot uses the templates installed for that editor. There is no machine-local template path.
@@ -165,7 +179,7 @@ Gaps, with the paths that own them:
 | Water normal | `src/world/water.gdshader` uses the vertex wave. Nothing assigned a normal map. | `res://assets/water_normal.png`, 512×512, then a sampler in that shader. |
 | Terrain albedo | `src/world/terrain.gdshader` has no texture slot. | Adding one means a new `sampler2D` plus a 2048 map. |
 | Icon | `res://icon.svg` only. | 256 and 512 PNG. macOS export also accepts `.icns`. |
-| Audio | `src/core/audio_synth.gd` only. No `.ogg` / `.wav` / `.mp3`. | Short ogg files if synth is replaced. |
+| Audio | `src/core/audio_synth.gd` only. No `.ogg` / `.wav` / `.mp3`. | Stay procedural. Do not add a sample bank. |
 
 The hunt camera stays first person. Third person is the harvest photo pose only.
 
@@ -175,7 +189,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 
 | What | Bytes |
 | --- | ---: |
-| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (57 files) | 289,695 |
+| Every `.gd`, `.gdshader`, `.tscn`, and `project.godot` file (59 files) | 304,502 |
 | `dist/SportsmansQuest.pck` (Godot 4.7.2 pack in the repo) | 1,826,512 |
 | `dist/SportsmansQuest_Compressed.exe` | 70,573,064 |
 | `media_banner.jpg` / `media_screenshot.png` | 894,679 / 776,124 |
@@ -185,7 +199,7 @@ These are file sizes, counted from this tree and from the v1.0.0 release archive
 | v1.0.0 `SportsmansQuest_Web.zip` | 18,599,295 |
 | `godot.wasm` inside the web zip | 39,514,754 |
 
-The 289,695 byte figure is the sum of those 57 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
+The 304,502 byte figure is the sum of those 59 source files, skipping `.git`. That source total is under 1 MB. Runnable builds are the pack, the executables, and the release zips in the rows under it.
 
 Pack versions are the major, minor, and patch integers in the `GDPC` header (format version 4, then `4, 7, 2` for the repo pack and `4, 2, 2` for the release pack). The repo pack's path table includes `res://media_banner.jpg` and `res://media_screenshot.png` plus compiled scripts. Release byte counts are the zip central directory (`unzip -l` on the v1.0.0 assets).
 

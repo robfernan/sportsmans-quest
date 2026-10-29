@@ -492,12 +492,14 @@ func _spawn_sky_ravens() -> void:
 
 func _init_ambient_audio() -> void:
 	_ambient_wind_player = AudioStreamPlayer.new()
+	_ambient_wind_player.bus = AudioDirector.BUS_AMBIENCE
 	_ambient_wind_player.stream = AudioSynth.wind_loop()
 	_ambient_wind_player.volume_db = -18.0
 	add_child(_ambient_wind_player)
 	_ambient_wind_player.play()
 
 	_bird_player = AudioStreamPlayer.new()
+	_bird_player.bus = AudioDirector.BUS_AMBIENCE
 	_bird_player.volume_db = -24.0
 	add_child(_bird_player)
 

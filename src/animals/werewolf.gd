@@ -141,6 +141,7 @@ func _think(delta: float) -> void:
 		howl_timer = randf_range(14.0, 28.0)
 		if _howl_player == null:
 			_howl_player = AudioStreamPlayer3D.new()
+			_howl_player.bus = AudioDirector.BUS_SFX
 			_howl_player.stream = AudioSynth.wolf_howl()
 			_howl_player.max_distance = 250.0
 			_howl_player.unit_size = 15.0

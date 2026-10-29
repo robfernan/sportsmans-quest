@@ -46,6 +46,7 @@ func _ready() -> void:
 	
 	# Wind waits for a click or key so the browser can unlock audio.
 	_wind_audio = AudioStreamPlayer.new()
+	_wind_audio.bus = AudioDirector.BUS_AMBIENCE
 	_wind_audio.stream = AudioSynth.wind_ambient(15.0, 0.4, false)
 	_wind_audio.volume_db = -22.0
 	add_child(_wind_audio)
