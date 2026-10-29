@@ -92,7 +92,7 @@ Cues are procedural mono PCM from `src/core/audio_synth.gd` (22050 Hz, no sample
 
 Footsteps (four takes per surface), clothing rustle (three takes), rifle echo tails, bird chirps, paddle strokes, and the short horror and harvest stings are built once and reused. Stance changes footstep level, and each play nudges pitch, so those cues are not resynthesized on every step.
 
-Daylight plays a chirp on a timer. A living werewolf or wendigo within 80 m hushes the birds. The ghost buck plays its chime once when it comes within 80 m. Aiming ducks the wind by 3 dB and, unless `enable_aim_breathing` is turned off on the hunter, plays a light breath loop at −22 dB. The lodge loops a soft room tone and, unless `enable_fire_crackle` is off, a hearth crackle.
+Daylight plays a chirp on a timer. A living werewolf or wendigo within 80 m hushes the birds. The ghost buck plays its chime once when it comes within 80 m. Aiming ducks the wind by 3 dB and, unless `enable_aim_breathing` is turned off on the hunter, plays a light breath loop at −22 dB. The lodge room tone and hearth crackle are synthesized loops in `room_tone()` and `fire_crackle()` (`enable_fire_crackle` turns the hearth off). Nothing in this mix loads an `.ogg`, `.wav`, or `.mp3`.
 
 `tools/audio_mix_check.gd` checks those bus levels, the −1 dB ceiling, and that the pools are reused:
 
